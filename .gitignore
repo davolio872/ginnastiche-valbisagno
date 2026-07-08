@@ -1,0 +1,9 @@
+node_modules
+dist
+.pnpm-store
+.vercel
+.env*
+*.log
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
