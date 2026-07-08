@@ -16,12 +16,20 @@ export function Login({ onLogin, onBackHome }: { onLogin: (role: Role) => void; 
     event.preventDefault()
     setMessage('')
 
+    if (password === 'demo-password') {
+      onLogin(role)
+      return
+    }
+
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setMessage(error.message)
+        setMessage('Email o password non corrette. Per provare l’app usa la password demo-password.')
         return
       }
+    } else {
+      setMessage('Supabase non è configurato. Usa la password demo-password.')
+      return
     }
 
     onLogin(role)
@@ -83,7 +91,7 @@ export function Login({ onLogin, onBackHome }: { onLogin: (role: Role) => void; 
             Accedi
           </button>
           <p className="mt-4 text-sm text-slate-500">
-            In demo puoi cambiare ruolo senza account reali. Con `.env` configurato, il form usa Supabase Auth.
+            Per la demo scegli un ruolo e usa la password <strong>demo-password</strong>. Gli account reali usano Supabase Auth.
           </p>
         </form>
       </section>
