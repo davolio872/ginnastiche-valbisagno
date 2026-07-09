@@ -1,76 +1,45 @@
 # Ginnastiche Valbisagno
 
-Web app gestionale MVP per una associazione sportiva di ginnastica artistica.
+Gestionale responsive per l'associazione sportiva Ginnastiche Valbisagno.
 
-## Funzioni incluse
+## Funzioni
 
-- Homepage pubblica con corsi, contatti e modulo prova gratuita.
-- Login con ruoli `admin`, `tecnico`, `genitore`, `atleta`.
-- Dashboard con prossimo allenamento, prossima gara, comunicazioni, certificato e segnalazione assenza.
-- Anagrafica atlete con gruppi, genitore, contatti, note sanitarie e foto.
-- Squadre/gruppi: Baby, Base, Avanzato, Agonistica, TeamGym, Acrobatica, Fitness.
-- Calendario eventi.
-- Registro presenze.
-- Comunicazioni con categorie e conferma lettura.
-- Certificati medici con stato valido/in scadenza/scaduto.
-- Gestione richieste prova gratuita per admin.
-- Diario atleta con progressi e obiettivi tecnici.
-- PWA installabile con manifest, icona e service worker.
-- Schema SQL Supabase con tabelle e Row Level Security.
+- Homepage pubblica e richiesta prova gratuita salvata nel database.
+- Login Supabase con sessione persistente.
+- Ruoli: admin, tecnico, genitore e atleta.
+- Gestione utenti e assegnazione ruoli.
+- CRUD per atlete, squadre, calendario, presenze, comunicazioni e certificati.
+- Gestione delle richieste di prova.
+- Diario atleta e obiettivi tecnici.
+- Foto e certificati in storage privato.
+- PWA installabile su smartphone.
+- Row Level Security per limitare i dati in base a ruolo e assegnazioni.
 
-## Stack
-
-- React
-- Vite
-- Tailwind CSS
-- Supabase Auth/Database/Storage
-- Vercel
-
-## Installazione locale
+## Avvio locale
 
 ```bash
 npm install
 npm run dev
 ```
 
-Apri l'URL mostrato da Vite, di solito `http://localhost:5173`.
-
-## Variabili ambiente
-
-Copia `.env.example` in `.env` e compila:
+Configurare `.env` usando `.env.example`:
 
 ```bash
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
+VITE_SUPABASE_ANON_KEY=your-publishable-key
 ```
-
-Senza queste variabili l'app usa dati demo locali, utili per valutare il flusso dei ruoli.
 
 ## Supabase
 
-1. Crea un progetto Supabase.
-2. Apri SQL Editor.
-3. Esegui il contenuto di `supabase/schema.sql`.
-4. Crea utenti in Supabase Auth.
-5. Inserisci per ogni utente una riga in `users_profiles` con lo stesso `id` dell'utente Auth.
-6. Collega genitori, atlete e tecnici tramite `guardians`, `athletes` e `team_members`.
+1. Eseguire `supabase/schema.sql` in un nuovo progetto.
+2. Creare il primo amministratore in Supabase Auth.
+3. Inserire il relativo record `users_profiles` con ruolo `admin`.
+4. Distribuire la funzione `supabase/functions/manage-user`.
+5. Creare gli altri account dal menu Utenti del gestionale.
+6. Collegare genitori e atlete dall'anagrafica e assegnare i tecnici alle squadre.
 
-Le policy RLS previste sono:
+Foto e certificati sono conservati in bucket privati. L'app genera URL firmati temporanei per gli utenti autenticati.
 
-- Admin vede e gestisce tutto.
-- Tecnici vedono i gruppi assegnati e le relative atlete.
-- Genitori vedono solo i dati delle figlie collegate.
-- Atlete vedono calendario, comunicazioni, diario e dati collegati al proprio profilo.
-- Richieste prova gratuita inseribili anche da utenti anonimi, visibili e gestibili solo da admin.
+## Deploy
 
-## Deploy su Vercel
-
-1. Importa il repository su Vercel.
-2. Imposta le variabili `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
-3. Deploy.
-
-Il file `vercel.json` è già configurato per Vite.
-
-## Note MVP
-
-Questa prima versione è pronta come base funzionante e include fallback demo. Il passo successivo naturale è sostituire i dati mock con query Supabase per ogni sezione e aggiungere form CRUD completi per admin e tecnici.
+Il progetto è pronto per Vercel. Configurare `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` negli ambienti Production, Preview e Development.

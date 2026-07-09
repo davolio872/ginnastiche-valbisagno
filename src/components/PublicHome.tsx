@@ -1,8 +1,37 @@
 import { ArrowRight, CalendarDays, MapPin, Phone } from 'lucide-react'
+import type { FormEvent } from 'react'
 import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 export function PublicHome({ onLoginClick }: { onLoginClick: () => void }) {
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submitTrial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    const form = new FormData(event.currentTarget)
+    if (!supabase) {
+      setError('Servizio momentaneamente non disponibile.')
+      return
+    }
+    const { error: submitError } = await supabase.from('trial_requests').insert({
+      child_name: form.get('child_name'),
+      age: Number(form.get('age')),
+      guardian_name: form.get('guardian_name'),
+      phone: form.get('phone'),
+      email: form.get('email'),
+      discipline: form.get('discipline'),
+      notes: form.get('notes') || null,
+      privacy_consent: true,
+    })
+    if (submitError) {
+      setError('Non è stato possibile inviare la richiesta. Riprova.')
+      return
+    }
+    setSent(true)
+    event.currentTarget.reset()
+  }
 
   return (
     <main className="bg-white text-slate-900">
@@ -76,29 +105,27 @@ export function PublicHome({ onLoginClick }: { onLoginClick: () => void }) {
           </div>
           <form
             className="grid gap-3 rounded-lg bg-white p-5 shadow-soft md:grid-cols-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSent(true)
-            }}
+            onSubmit={submitTrial}
           >
-            <input required placeholder="Nome bambino/a" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
-            <input required placeholder="Eta" type="number" min="3" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
-            <input required placeholder="Nome genitore" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
-            <input required placeholder="Telefono" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
-            <input required placeholder="Email" type="email" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
-            <select className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700">
+            <input name="child_name" required placeholder="Nome bambino/a" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
+            <input name="age" required placeholder="Età" type="number" min="2" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
+            <input name="guardian_name" required placeholder="Nome genitore" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
+            <input name="phone" required placeholder="Telefono" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
+            <input name="email" required placeholder="Email" type="email" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700" />
+            <select name="discipline" className="rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700">
               <option>Ginnastica artistica</option>
               <option>TeamGym</option>
               <option>Acrobatica</option>
               <option>Fitness</option>
             </select>
-            <textarea placeholder="Note" className="min-h-28 rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700 md:col-span-2" />
+            <textarea name="notes" placeholder="Note" className="min-h-28 rounded-lg border border-brand-100 px-4 py-3 outline-none focus:border-brand-700 md:col-span-2" />
             <label className="flex gap-3 text-sm font-semibold text-slate-600 md:col-span-2">
               <input required type="checkbox" className="mt-1" />
               Acconsento al trattamento dei dati per essere ricontattato.
             </label>
             <button className="rounded-lg bg-brand-900 px-5 py-4 font-black text-white shadow-soft md:col-span-2">Invia richiesta</button>
-            {sent && <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700 md:col-span-2">Richiesta demo registrata.</p>}
+            {sent && <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700 md:col-span-2">Richiesta registrata. Ti ricontatteremo presto.</p>}
+            {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700 md:col-span-2">{error}</p>}
           </form>
         </div>
       </section>

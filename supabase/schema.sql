@@ -503,3 +503,41 @@ create index if not exists idx_medical_certificates_uploaded_by on public.medica
 create index if not exists idx_payments_athlete_id on public.payments(athlete_id);
 create index if not exists idx_team_members_athlete_id on public.team_members(athlete_id);
 create index if not exists idx_team_members_coach_id on public.team_members(coach_id);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('athlete-media', 'athlete-media', false, 10485760, array['image/jpeg','image/png','image/webp']),
+  ('certificates', 'certificates', false, 10485760, array['application/pdf','image/jpeg','image/png','image/webp'])
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "athlete media authenticated read" on storage.objects for select to authenticated
+using (bucket_id = 'athlete-media');
+create policy "athlete media staff insert" on storage.objects for insert to authenticated
+with check (bucket_id = 'athlete-media' and (gv_private.is_admin() or gv_private.current_role() = 'tecnico'));
+create policy "athlete media staff update" on storage.objects for update to authenticated
+using (bucket_id = 'athlete-media' and (gv_private.is_admin() or gv_private.current_role() = 'tecnico'))
+with check (bucket_id = 'athlete-media' and (gv_private.is_admin() or gv_private.current_role() = 'tecnico'));
+create policy "athlete media staff delete" on storage.objects for delete to authenticated
+using (bucket_id = 'athlete-media' and (gv_private.is_admin() or gv_private.current_role() = 'tecnico'));
+
+create policy "certificates authenticated read" on storage.objects for select to authenticated
+using (bucket_id = 'certificates');
+create policy "certificates admin parent insert" on storage.objects for insert to authenticated
+with check (bucket_id = 'certificates' and (gv_private.is_admin() or gv_private.current_role() = 'genitore'));
+create policy "certificates admin parent update" on storage.objects for update to authenticated
+using (bucket_id = 'certificates' and (gv_private.is_admin() or gv_private.current_role() = 'genitore'))
+with check (bucket_id = 'certificates' and (gv_private.is_admin() or gv_private.current_role() = 'genitore'));
+create policy "certificates admin parent delete" on storage.objects for delete to authenticated
+using (bucket_id = 'certificates' and (gv_private.is_admin() or gv_private.current_role() = 'genitore'));
+
+create policy "attendance parent absence insert" on public.attendance for insert to authenticated
+with check (
+  status = 'assente' and exists (
+    select 1 from public.athletes a
+    join public.guardians g on g.id = a.guardian_id
+    where a.id = attendance.athlete_id and g.user_id = (select auth.uid())
+  )
+);
