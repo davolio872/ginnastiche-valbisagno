@@ -11,6 +11,11 @@ import {
   type AthleteRow, type AttendanceRow, type CertificateRow, type CommunicationRow, type EventRow,
   type GoalRow, type ProfileRow, type TeamRow, type TrialRow,
 } from './lib/database'
+import {
+  createDemoUser, demoFile, loadDemoData, removeDemoRow, saveDemoAthlete, saveDemoEvent,
+  saveDemoSimple, saveDemoTeam,
+} from './lib/demoDatabase'
+import { demoProfiles } from './lib/mockData'
 import { supabase } from './lib/supabase'
 import type { Role, UserProfile } from './lib/types'
 
@@ -45,6 +50,7 @@ const certificateState = (expires?: string | null) => {
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [demoMode, setDemoMode] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
   const [showPublic, setShowPublic] = useState(true)
   const [section, setSection] = useState<Section>('dashboard')
@@ -55,9 +61,9 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setLoading(true); setError('')
-    try { setData(await loadManagementData()) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Errore nel caricamento') }
+    try { setData(demoMode ? await loadDemoData() : await loadManagementData()) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Errore nel caricamento') }
     finally { setLoading(false) }
-  }, [])
+  }, [demoMode])
 
   useEffect(() => {
     if (!supabase) { setAuthLoading(false); return }
@@ -81,11 +87,11 @@ export default function App() {
 
   if (authLoading) return <LoadingScreen />
   if (!profile && showPublic) return <PublicHome onLoginClick={() => setShowPublic(false)} />
-  if (!profile) return <Login onBackHome={() => setShowPublic(true)} />
+  if (!profile) return <Login onBackHome={() => setShowPublic(true)} onDemoLogin={() => { setDemoMode(true); setProfile(demoProfiles.admin) }} />
 
   async function remove(table: string, id: string) {
     if (!window.confirm('Eliminare definitivamente questo elemento?')) return
-    try { await removeRow(table, id); await refresh() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Eliminazione non riuscita') }
+    try { if (demoMode) await removeDemoRow(table, id); else await removeRow(table, id); await refresh() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Eliminazione non riuscita') }
   }
 
   return (
@@ -95,7 +101,7 @@ export default function App() {
         <nav className="mt-8 space-y-2">{allowedNav.map((item) => <NavButton key={item.id} item={item} active={section === item.id} onClick={() => setSection(item.id)} />)}</nav>
         <div className="absolute bottom-6 left-5 right-5 rounded-lg border border-white/15 bg-white/10 p-4">
           <p className="font-bold">{profile.full_name}</p><p className="truncate text-sm text-brand-100">{profile.email}</p>
-          <button onClick={() => supabase?.auth.signOut()} className="mt-4 flex items-center gap-2 text-sm font-bold"><LogOut size={16} />Esci</button>
+          <button onClick={() => { if (demoMode) { setProfile(null); setDemoMode(false) } else void supabase?.auth.signOut() }} className="mt-4 flex items-center gap-2 text-sm font-bold"><LogOut size={16} />Esci</button>
         </div>
       </aside>
       <main className="pb-24 lg:ml-72 lg:pb-10">
@@ -109,6 +115,7 @@ export default function App() {
           </div>
         </header>
         <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+          {demoMode && <div className="mb-5 rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-900">Modalità demo: tutte le funzioni sono attive, i dati restano soltanto in questo browser.</div>}
           {error && <div className="mb-5 flex justify-between rounded-lg bg-red-50 p-4 font-semibold text-red-700">{error}<button onClick={() => setError('')}><X size={18} /></button></div>}
           {loading ? <div className="grid min-h-64 place-items-center"><LoaderCircle className="animate-spin text-brand-700" size={32} /></div> : (
             <>
@@ -129,7 +136,7 @@ export default function App() {
       <nav className="fixed inset-x-0 bottom-0 z-30 flex gap-1 overflow-x-auto border-t border-brand-100 bg-white px-2 py-2 shadow-soft lg:hidden">
         {allowedNav.map((item) => <NavButton key={item.id} item={item} mobile active={section === item.id} onClick={() => setSection(item.id)} />)}
       </nav>
-      {editor && <EditorModal editor={editor} data={data} profile={profile} close={() => setEditor(null)} saved={async () => { setEditor(null); await refresh() }} fail={setError} />}
+      {editor && <EditorModal demoMode={demoMode} editor={editor} data={data} profile={profile} close={() => setEditor(null)} saved={async () => { setEditor(null); await refresh() }} fail={setError} />}
     </div>
   )
 }
@@ -204,7 +211,7 @@ function Diary({ data, editable, edit, remove }: { data: DataState; editable: bo
 }
 function MetricSmall({ icon: Icon, label, value }: { icon: typeof Home; label: string; value: string }) { return <div><Icon size={22} /><p className="mt-1 text-2xl font-black">{value}</p><p className="text-xs text-brand-100">{label}</p></div> }
 
-function EditorModal({ editor, data, profile, close, saved, fail }: { editor: NonNullable<Editor>; data: DataState; profile: UserProfile; close: () => void; saved: () => Promise<void>; fail: (m: string) => void }) {
+function EditorModal({ editor, data, profile, demoMode, close, saved, fail }: { editor: NonNullable<Editor>; data: DataState; profile: UserProfile; demoMode: boolean; close: () => void; saved: () => Promise<void>; fail: (m: string) => void }) {
   const [saving, setSaving] = useState(false)
   const item = editor.item ?? {}
   const id = item.id as string | undefined
@@ -215,27 +222,27 @@ function EditorModal({ editor, data, profile, close, saved, fail }: { editor: No
     const checked = (name: string) => Array.from(form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]:checked`)).map((el) => el.value)
     try {
       if (editor.kind === 'utenti') {
-        if (id) await saveSimple('users_profiles', { full_name: values.full_name, phone: values.phone || null, role: values.role }, id)
-        else await createUser(values)
+        if (id) await (demoMode ? saveDemoSimple : saveSimple)('users_profiles', { full_name: values.full_name, phone: values.phone || null, role: values.role }, id)
+        else await (demoMode ? createDemoUser : createUser)(values)
       }
-      if (editor.kind === 'squadre') await saveTeam(values, checked('coach_ids'), id)
+      if (editor.kind === 'squadre') await (demoMode ? saveDemoTeam : saveTeam)(values, checked('coach_ids'), id)
       if (editor.kind === 'atlete') {
-        if ((values.photo as File)?.size) values.profile_photo_url = await uploadFile('athlete-media', values.photo as File)
+        if ((values.photo as File)?.size) values.profile_photo_url = demoMode ? await demoFile(values.photo as File) : await uploadFile('athlete-media', values.photo as File)
         else values.profile_photo_url = item.profile_photo_path ?? item.profile_photo_url
-        await saveAthlete({ ...values, guardian_id: item.guardian_id }, checked('team_ids'), id)
+        await (demoMode ? saveDemoAthlete : saveAthlete)({ ...values, guardian_id: item.guardian_id }, checked('team_ids'), id)
       }
-      if (editor.kind === 'calendario') await saveEvent(values, checked('team_ids'), id)
-      if (editor.kind === 'presenze') await saveSimple('attendance', { athlete_id: values.athlete_id, event_id: values.event_id, status: values.status, notes: values.notes || null, reported_by: profile.id }, id)
-      if (editor.kind === 'comunicazioni') await saveSimple('communications', { title: values.title, body: values.body, category: values.category, is_urgent: values.is_urgent === 'on', requires_read_confirmation: values.requires_read_confirmation === 'on', created_by: profile.id }, id)
+      if (editor.kind === 'calendario') await (demoMode ? saveDemoEvent : saveEvent)(values, checked('team_ids'), id)
+      if (editor.kind === 'presenze') await (demoMode ? saveDemoSimple : saveSimple)('attendance', { athlete_id: values.athlete_id, event_id: values.event_id, status: values.status, notes: values.notes || null, reported_by: profile.id }, id)
+      if (editor.kind === 'comunicazioni') await (demoMode ? saveDemoSimple : saveSimple)('communications', { title: values.title, body: values.body, category: values.category, is_urgent: values.is_urgent === 'on', requires_read_confirmation: values.requires_read_confirmation === 'on', created_by: profile.id, published_at: item.published_at ?? new Date().toISOString() }, id)
       if (editor.kind === 'certificati') {
         let fileUrl = (item.storage_path ?? item.file_url) as string | undefined
-        if ((values.file as File)?.size) fileUrl = await uploadFile('certificates', values.file as File)
+        if ((values.file as File)?.size) fileUrl = demoMode ? await demoFile(values.file as File) : await uploadFile('certificates', values.file as File)
         if (!fileUrl) throw new Error('Seleziona il certificato da caricare.')
         const status = certificateState(values.expires_at as string).label.toLowerCase()
-        await saveSimple('medical_certificates', { athlete_id: values.athlete_id, file_url: fileUrl, expires_at: values.expires_at, status, uploaded_by: profile.id }, id)
+        await (demoMode ? saveDemoSimple : saveSimple)('medical_certificates', { athlete_id: values.athlete_id, file_url: fileUrl, expires_at: values.expires_at, status, uploaded_by: profile.id }, id)
       }
-      if (editor.kind === 'prove') await saveSimple('trial_requests', { status: values.status }, id)
-      if (editor.kind === 'diario') await saveSimple('athlete_goals', { athlete_id: values.athlete_id, goal_id: values.goal_id, status: values.status, coach_note: values.coach_note || null, assigned_by: profile.id }, id)
+      if (editor.kind === 'prove') await (demoMode ? saveDemoSimple : saveSimple)('trial_requests', { status: values.status }, id)
+      if (editor.kind === 'diario') await (demoMode ? saveDemoSimple : saveSimple)('athlete_goals', { athlete_id: values.athlete_id, goal_id: values.goal_id, status: values.status, coach_note: values.coach_note || null, assigned_by: profile.id }, id)
       await saved()
     } catch (cause) { fail(cause instanceof Error ? cause.message : 'Salvataggio non riuscito') } finally { setSaving(false) }
   }

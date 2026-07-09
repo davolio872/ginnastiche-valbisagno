@@ -14,6 +14,14 @@ Gestionale responsive per l'associazione sportiva Ginnastiche Valbisagno.
 - Foto e certificati in storage privato.
 - PWA installabile su smartphone.
 - Row Level Security per limitare i dati in base a ruolo e assegnazioni.
+- Modalità demo completa e isolata con dati persistenti nel browser.
+
+## Accesso demo
+
+- Utente: `admin`
+- Password: `1234`
+
+La modalità demo consente inserimento, modifica ed eliminazione in tutte le sezioni. I dati restano nel browser e non vengono inviati al database reale.
 
 ## Avvio locale
 
