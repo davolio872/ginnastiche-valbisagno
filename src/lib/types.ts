@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'tecnico' | 'genitore' | 'atleta'
+export type Role = 'admin' | 'presidente' | 'segreteria' | 'direttore_tecnico' | 'tecnico' | 'insegnante' | 'genitore' | 'famiglia' | 'atleta'
 
 export type UserProfile = {
   id: string
@@ -15,6 +15,12 @@ export type Team = {
   description: string
   color: string
   coachIds: string[]
+  season?: string
+  age_range?: string
+  level?: string
+  gym?: string
+  days?: string
+  times?: string
 }
 
 export type Athlete = {
@@ -43,7 +49,7 @@ export type EventItem = {
   teamIds: string[]
 }
 
-export type AttendanceStatus = 'presente' | 'assente' | 'ritardo' | 'uscita anticipata'
+export type AttendanceStatus = 'presente' | 'assente' | 'assente giustificato' | 'ritardo' | 'uscita anticipata'
 
 export type Attendance = {
   id: string
@@ -85,3 +91,20 @@ export type TrialRequest = {
   notes?: string
   status: 'nuova' | 'contattata' | 'prova fissata' | 'iscritta' | 'non interessata'
 }
+
+export type PaymentStatus = 'pagato' | 'non pagato' | 'parziale' | 'esonerato' | 'da pagare' | 'scaduto'
+
+export type ModuleKey =
+  | 'anagrafiche'
+  | 'gruppi'
+  | 'calendario'
+  | 'presenze'
+  | 'programmi'
+  | 'comunicazioni'
+  | 'certificati'
+  | 'pagamenti'
+  | 'gare'
+  | 'galleria'
+  | 'prove'
+  | 'report'
+  | 'importazioni'

@@ -1,7 +1,8 @@
 import { athleteGoals, athletes, attendance, communications, demoProfiles, events, teams, trialRequests } from './mockData'
 import type {
   AthleteRow, AttendanceRow, CertificateRow, CommunicationRow, EventRow, GoalRow,
-  ProfileRow, TeamRow, TrialRow,
+  MembershipRow, PaymentRow, ProfileRow, SubstitutionRow, TeacherAttendanceRow, TeamRow,
+  TrainingProgramRow, TrialRow,
 } from './database'
 
 const KEY = 'gv-demo-management-v1'
@@ -18,6 +19,11 @@ type DemoData = {
   trials: TrialRow[]
   goals: GoalRow[]
   goalCatalog: Array<{ id: string; title: string; apparatus: string }>
+  teacherAttendance: TeacherAttendanceRow[]
+  trainingPrograms: TrainingProgramRow[]
+  payments: PaymentRow[]
+  memberships: MembershipRow[]
+  substitutions: SubstitutionRow[]
 }
 
 function seed(): DemoData {
@@ -26,6 +32,12 @@ function seed(): DemoData {
     name: team.name,
     description: team.description,
     color: team.color,
+    season: team.season ?? '2026/2027',
+    age_range: team.age_range ?? null,
+    level: team.level ?? null,
+    gym: team.gym ?? null,
+    days: team.days ?? null,
+    times: team.times ?? null,
     team_members: team.coachIds.map((coach_id) => ({ coach_id })),
   }))
   const athleteRows: AthleteRow[] = athletes.map((athlete) => ({
@@ -97,6 +109,92 @@ function seed(): DemoData {
       goal_id: catalog[index].id,
     })) as GoalRow[],
     goalCatalog: catalog,
+    teacherAttendance: [
+      {
+        id: 'teacher-att-1',
+        teacher_id: 'profile-coach',
+        event_id: 'event-1',
+        started_at: '2026-07-07T17:00:00',
+        ended_at: '2026-07-07T19:02:00',
+        duration_minutes: 122,
+        users_profiles: { full_name: 'Sara Tecnica' },
+        events: { title: 'Allenamento Silver + Agonistica', event_date: '2026-07-07' },
+      },
+    ],
+    trainingPrograms: [
+      {
+        id: 'program-1',
+        event_id: 'event-1',
+        team_id: 'agonistica',
+        objectives: 'Pulizia rondate e lavoro sugli arrivi bloccati.',
+        exercises: 'Riscaldamento dinamico, diagonali corpo libero, trave bassa.',
+        athletic_preparation: 'Circuito core, mobilita spalle, salti pliometrici.',
+        technical_elements: 'Rondata, verticale, entrata trave.',
+        final_notes: 'Gruppo concentrato. Riprendere arrivi in buca nella prossima lezione.',
+        created_by: 'profile-coach',
+        events: { title: 'Allenamento Silver + Agonistica', event_date: '2026-07-07' },
+        teams: { name: 'Agonistica' },
+      },
+    ],
+    payments: [
+      {
+        id: 'payment-1',
+        athlete_id: 'athlete-1',
+        description: 'Quota associativa 2026/2027',
+        amount: 80,
+        due_date: '2026-09-15',
+        paid_at: null,
+        status: 'non pagato',
+        receipt_url: null,
+        athletes: { first_name: 'Emma', last_name: 'Bianchi' },
+      },
+      {
+        id: 'payment-2',
+        athlete_id: 'athlete-3',
+        description: 'Gara Trofeo Estate',
+        amount: 25,
+        due_date: '2026-07-18',
+        paid_at: '2026-07-10',
+        status: 'pagato',
+        receipt_url: null,
+        athletes: { first_name: 'Nora', last_name: 'Ferrari' },
+      },
+    ],
+    memberships: [
+      {
+        id: 'membership-1',
+        athlete_id: 'athlete-1',
+        season: '2025/2026',
+        federation: 'UISP',
+        card_number: 'UISP-2025-001',
+        status: 'scaduta',
+        source: 'import UISP',
+        athletes: { first_name: 'Emma', last_name: 'Bianchi' },
+      },
+      {
+        id: 'membership-2',
+        athlete_id: 'athlete-1',
+        season: '2026/2027',
+        federation: 'UISP',
+        card_number: 'UISP-2026-118',
+        status: 'attiva',
+        source: 'import UISP',
+        athletes: { first_name: 'Emma', last_name: 'Bianchi' },
+      },
+    ],
+    substitutions: [
+      {
+        id: 'sub-1',
+        event_id: 'event-2',
+        absent_teacher_id: 'profile-coach',
+        substitute_teacher_id: 'profile-teacher',
+        reason: 'Impegno gara regionale',
+        status: 'assegnata',
+        events: { title: 'Trofeo Estate Genova', event_date: '2026-07-19' },
+        absent_teacher: { full_name: 'Sara Tecnica' },
+        substitute_teacher: { full_name: 'Martina Insegnante' },
+      },
+    ],
   }
 }
 
@@ -107,7 +205,8 @@ function read(): DemoData {
     write(initial)
     return initial
   }
-  return JSON.parse(stored) as DemoData
+  const parsed = JSON.parse(stored) as Partial<DemoData>
+  return { ...seed(), ...parsed } as DemoData
 }
 
 function write(data: DemoData) {
@@ -122,7 +221,14 @@ export async function saveDemoTeam(values: Record<string, unknown>, coachIds: st
   const data = read()
   const row: TeamRow = {
     id: teamId ?? id(), name: String(values.name), description: String(values.description || ''),
-    color: String(values.color || '#0f766e'), team_members: coachIds.map((coach_id) => ({ coach_id })),
+    color: String(values.color || '#0f766e'),
+    season: String(values.season || '') || null,
+    age_range: String(values.age_range || '') || null,
+    level: String(values.level || '') || null,
+    gym: String(values.gym || '') || null,
+    days: String(values.days || '') || null,
+    times: String(values.times || '') || null,
+    team_members: coachIds.map((coach_id) => ({ coach_id })),
   }
   data.teams = teamId ? data.teams.map((item) => item.id === teamId ? row : item) : [...data.teams, row]
   write(data)
@@ -162,7 +268,19 @@ export async function saveDemoEvent(values: Record<string, unknown>, teamIds: st
 
 export async function saveDemoSimple(table: string, values: Record<string, unknown>, rowId?: string) {
   const data = read()
-  const key = ({ users_profiles: 'profiles', attendance: 'attendance', communications: 'communications', medical_certificates: 'certificates', trial_requests: 'trials', athlete_goals: 'goals' } as Record<string, keyof DemoData>)[table]
+  const key = ({
+    users_profiles: 'profiles',
+    attendance: 'attendance',
+    communications: 'communications',
+    medical_certificates: 'certificates',
+    trial_requests: 'trials',
+    athlete_goals: 'goals',
+    teacher_attendance: 'teacherAttendance',
+    training_programs: 'trainingPrograms',
+    payments: 'payments',
+    athlete_memberships: 'memberships',
+    substitution_requests: 'substitutions',
+  } as Record<string, keyof DemoData>)[table]
   if (!key) return
   const collection = data[key] as Array<Record<string, unknown>>
   const existing = collection.find((row) => row.id === rowId) ?? {}
@@ -181,6 +299,30 @@ export async function saveDemoSimple(table: string, values: Record<string, unkno
     const goal = data.goalCatalog.find((item) => item.id === values.goal_id)
     row.goals = goal ? { title: goal.title, apparatus: goal.apparatus } : null
   }
+  if (['payments', 'athlete_memberships'].includes(table)) {
+    const athlete = data.athletes.find((item) => item.id === values.athlete_id)
+    row.athletes = athlete ? { first_name: athlete.first_name, last_name: athlete.last_name } : null
+  }
+  if (table === 'teacher_attendance') {
+    const teacher = data.profiles.find((item) => item.id === values.teacher_id)
+    const event = data.events.find((item) => item.id === values.event_id)
+    row.users_profiles = teacher ? { full_name: teacher.full_name } : null
+    row.events = event ? { title: event.title, event_date: event.event_date } : null
+  }
+  if (table === 'training_programs') {
+    const event = data.events.find((item) => item.id === values.event_id)
+    const team = data.teams.find((item) => item.id === values.team_id)
+    row.events = event ? { title: event.title, event_date: event.event_date } : null
+    row.teams = team ? { name: team.name } : null
+  }
+  if (table === 'substitution_requests') {
+    const event = data.events.find((item) => item.id === values.event_id)
+    const absent = data.profiles.find((item) => item.id === values.absent_teacher_id)
+    const substitute = data.profiles.find((item) => item.id === values.substitute_teacher_id)
+    row.events = event ? { title: event.title, event_date: event.event_date } : null
+    row.absent_teacher = absent ? { full_name: absent.full_name } : null
+    row.substitute_teacher = substitute ? { full_name: substitute.full_name } : null
+  }
   ;(data[key] as Array<Record<string, unknown>>) = rowId
     ? collection.map((item) => item.id === rowId ? row : item)
     : [row, ...collection]
@@ -189,7 +331,22 @@ export async function saveDemoSimple(table: string, values: Record<string, unkno
 
 export async function removeDemoRow(table: string, rowId: string) {
   const data = read()
-  const key = ({ users_profiles: 'profiles', teams: 'teams', athletes: 'athletes', events: 'events', attendance: 'attendance', communications: 'communications', medical_certificates: 'certificates', trial_requests: 'trials', athlete_goals: 'goals' } as Record<string, keyof DemoData>)[table]
+  const key = ({
+    users_profiles: 'profiles',
+    teams: 'teams',
+    athletes: 'athletes',
+    events: 'events',
+    attendance: 'attendance',
+    communications: 'communications',
+    medical_certificates: 'certificates',
+    trial_requests: 'trials',
+    athlete_goals: 'goals',
+    teacher_attendance: 'teacherAttendance',
+    training_programs: 'trainingPrograms',
+    payments: 'payments',
+    athlete_memberships: 'memberships',
+    substitution_requests: 'substitutions',
+  } as Record<string, keyof DemoData>)[table]
   if (key) {
     const collection = data[key] as Array<Record<string, unknown>>
     ;(data[key] as Array<Record<string, unknown>>) = collection.filter((row) => row.id !== rowId)
@@ -211,4 +368,3 @@ export async function createDemoUser(values: Record<string, unknown>) {
     full_name: values.full_name, email: values.email, phone: values.phone || null, role: values.role,
   })
 }
-

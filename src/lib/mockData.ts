@@ -13,9 +13,27 @@ import type {
 export const demoProfiles: Record<Role, UserProfile> = {
   admin: {
     id: 'profile-admin',
-    full_name: 'Direzione Valbisagno',
+    full_name: 'Presidenza Valbisagno',
     email: 'admin@ginnastichevalbisagno.it',
     role: 'admin',
+  },
+  presidente: {
+    id: 'profile-president',
+    full_name: 'Presidente Valbisagno',
+    email: 'presidente@ginnastichevalbisagno.it',
+    role: 'presidente',
+  },
+  segreteria: {
+    id: 'profile-office',
+    full_name: 'Segreteria Valbisagno',
+    email: 'segreteria@ginnastichevalbisagno.it',
+    role: 'segreteria',
+  },
+  direttore_tecnico: {
+    id: 'profile-director',
+    full_name: 'Direzione Tecnica',
+    email: 'dt@ginnastichevalbisagno.it',
+    role: 'direttore_tecnico',
   },
   tecnico: {
     id: 'profile-coach',
@@ -23,11 +41,23 @@ export const demoProfiles: Record<Role, UserProfile> = {
     email: 'tecnico@ginnastichevalbisagno.it',
     role: 'tecnico',
   },
+  insegnante: {
+    id: 'profile-teacher',
+    full_name: 'Martina Insegnante',
+    email: 'insegnante@ginnastichevalbisagno.it',
+    role: 'insegnante',
+  },
   genitore: {
     id: 'profile-parent',
     full_name: 'Laura Bianchi',
     email: 'genitore@example.com',
     role: 'genitore',
+  },
+  famiglia: {
+    id: 'profile-family',
+    full_name: 'Famiglia Bianchi',
+    email: 'famiglia@example.com',
+    role: 'famiglia',
   },
   atleta: {
     id: 'profile-athlete',
@@ -38,13 +68,13 @@ export const demoProfiles: Record<Role, UserProfile> = {
 }
 
 export const teams: Team[] = [
-  { id: 'baby', name: 'Baby', description: 'Primi passi motori e gioco ginnico.', color: '#38bdf8', coachIds: ['profile-coach'] },
-  { id: 'base', name: 'Base', description: 'Tecnica di base e coordinazione.', color: '#0ea5e9', coachIds: ['profile-coach'] },
-  { id: 'avanzato', name: 'Avanzato', description: 'Elementi evoluti e preparazione gare.', color: '#2563eb', coachIds: ['profile-coach'] },
-  { id: 'agonistica', name: 'Agonistica', description: 'Programma competitivo federale.', color: '#1d4ed8', coachIds: ['profile-coach'] },
-  { id: 'teamgym', name: 'TeamGym', description: 'Lavoro di squadra, tumbling e mini trampolino.', color: '#0891b2', coachIds: ['profile-coach'] },
-  { id: 'acrobatica', name: 'Acrobatica', description: 'Acrobatica a coppie e collettiva.', color: '#0f766e', coachIds: ['profile-coach'] },
-  { id: 'fitness', name: 'Fitness', description: 'Condizionamento e benessere.', color: '#0284c7', coachIds: ['profile-coach'] },
+  { id: 'pulcini', name: 'Pulcini', description: 'Avviamento motorio e gioco ginnico.', color: '#18aaa5', coachIds: ['profile-coach', 'profile-teacher'], season: '2026/2027', age_range: '4-6 anni', level: 'Avviamento', gym: 'Palestra Valbisagno', days: 'Lunedi, Mercoledi', times: '16:30-17:30' },
+  { id: 'pre-agonistica', name: 'Pre-Agonistica', description: 'Preparazione al percorso competitivo.', color: '#0a6d78', coachIds: ['profile-coach'], season: '2026/2027', age_range: '7-10 anni', level: 'Intermedio', gym: 'Palestra Valbisagno', days: 'Martedi, Giovedi', times: '17:00-18:30' },
+  { id: 'rassegna', name: 'Rassegna', description: 'Percorso promozionale e saggi societari.', color: '#38bdf8', coachIds: ['profile-teacher'], season: '2026/2027', age_range: '8-13 anni', level: 'Base', gym: 'Palestra Valbisagno', days: 'Venerdi', times: '17:00-18:30' },
+  { id: 'silver', name: 'Silver', description: 'Programma gare Silver.', color: '#0ea5e9', coachIds: ['profile-coach'], season: '2026/2027', age_range: '8-16 anni', level: 'Silver', gym: 'Palestra Valbisagno', days: 'Lunedi, Mercoledi, Venerdi', times: '18:00-20:00' },
+  { id: 'agonistica', name: 'Agonistica', description: 'Programma competitivo federale.', color: '#063f4d', coachIds: ['profile-coach'], season: '2026/2027', age_range: '9+ anni', level: 'Agonistica', gym: 'Palestra Valbisagno', days: 'Lunedi, Martedi, Giovedi', times: '18:00-20:30' },
+  { id: 'acrobatica', name: 'Acrobatica', description: 'Acrobatica a coppie e collettiva.', color: '#0891b2', coachIds: ['profile-teacher'], season: '2026/2027', age_range: '10+ anni', level: 'Acrobatica', gym: 'Palestra Valbisagno', days: 'Mercoledi', times: '19:00-20:30' },
+  { id: 'corso-adulti', name: 'Corso Adulti', description: 'Fitness ginnico e mobilita per adulti.', color: '#0284c7', coachIds: ['profile-teacher'], season: '2026/2027', age_range: '18+ anni', level: 'Adulti', gym: 'Palestra Valbisagno', days: 'Martedi', times: '20:00-21:00' },
 ]
 
 export const athletes: Athlete[] = [
@@ -59,7 +89,7 @@ export const athletes: Athlete[] = [
     medical_certificate_expires_at: '2026-07-29',
     medical_notes: 'Allergia lieve al lattice.',
     profile_photo_url: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=600&q=80',
-    teamIds: ['avanzato', 'teamgym'],
+    teamIds: ['silver', 'agonistica'],
   },
   {
     id: 'athlete-2',
@@ -71,7 +101,7 @@ export const athletes: Athlete[] = [
     guardian_email: 'marco.rossi@example.com',
     medical_certificate_expires_at: '2026-11-15',
     profile_photo_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80',
-    teamIds: ['base'],
+    teamIds: ['pulcini'],
   },
   {
     id: 'athlete-3',
@@ -91,13 +121,13 @@ export const events: EventItem[] = [
   {
     id: 'event-1',
     type: 'allenamento',
-    title: 'Allenamento Avanzato + TeamGym',
+    title: 'Allenamento Silver + Agonistica',
     date: '2026-07-07',
     starts_at: '17:00',
     ends_at: '19:00',
     location: 'Palestra Valbisagno',
     description: 'Riscaldamento, trave, corpo libero e circuito acrobatico.',
-    teamIds: ['avanzato', 'teamgym'],
+    teamIds: ['silver', 'agonistica'],
   },
   {
     id: 'event-2',
@@ -108,7 +138,7 @@ export const events: EventItem[] = [
     ends_at: '13:00',
     location: 'Palazzetto dello Sport',
     description: 'Convocazione 08:15 con body societario.',
-    teamIds: ['agonistica', 'avanzato'],
+    teamIds: ['agonistica', 'silver'],
   },
   {
     id: 'event-3',
@@ -119,13 +149,13 @@ export const events: EventItem[] = [
     ends_at: '19:30',
     location: 'Sala corsi',
     description: 'Presentazione calendario, quote e certificati.',
-    teamIds: ['baby', 'base', 'avanzato', 'agonistica', 'teamgym'],
+    teamIds: ['pulcini', 'pre-agonistica', 'rassegna', 'silver', 'agonistica'],
   },
 ]
 
 export const attendance: Attendance[] = [
   { id: 'att-1', athleteId: 'athlete-1', eventId: 'event-1', status: 'presente' },
-  { id: 'att-2', athleteId: 'athlete-2', eventId: 'event-1', status: 'assente', notes: 'Segnalata dal genitore.' },
+  { id: 'att-2', athleteId: 'athlete-2', eventId: 'event-1', status: 'assente giustificato', notes: 'Segnalata dal genitore.' },
   { id: 'att-3', athleteId: 'athlete-3', eventId: 'event-2', status: 'presente' },
 ]
 

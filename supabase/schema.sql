@@ -1,12 +1,12 @@
 create extension if not exists "pgcrypto";
 
-create type public.user_role as enum ('admin', 'tecnico', 'genitore', 'atleta');
+create type public.user_role as enum ('admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia', 'atleta');
 create type public.event_type as enum ('allenamento', 'gara', 'saggio', 'stage', 'riunione', 'chiusura');
-create type public.attendance_status as enum ('presente', 'assente', 'ritardo', 'uscita anticipata');
+create type public.attendance_status as enum ('presente', 'assente', 'assente giustificato', 'ritardo', 'uscita anticipata');
 create type public.communication_category as enum ('allenamenti', 'gare', 'documenti', 'quote', 'eventi', 'urgente');
 create type public.goal_status as enum ('da iniziare', 'in corso', 'raggiunto', 'consolidato');
 create type public.certificate_status as enum ('valido', 'in scadenza', 'scaduto');
-create type public.payment_status as enum ('da pagare', 'pagato', 'scaduto');
+create type public.payment_status as enum ('pagato', 'non pagato', 'parziale', 'esonerato', 'da pagare', 'scaduto');
 create type public.trial_status as enum ('nuova', 'contattata', 'prova fissata', 'iscritta', 'non interessata');
 
 create table public.users_profiles (
@@ -33,6 +33,12 @@ create table public.teams (
   name text not null unique,
   description text,
   color text default '#0b6bb6',
+  season text,
+  age_range text,
+  level text,
+  gym text,
+  days text,
+  times text,
   created_at timestamptz not null default now()
 );
 
@@ -92,6 +98,31 @@ create table public.attendance (
   notes text,
   created_at timestamptz not null default now(),
   unique (event_id, athlete_id)
+);
+
+create table public.teacher_attendance (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.users_profiles(id) on delete cascade,
+  event_id uuid references public.events(id) on delete set null,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  duration_minutes int generated always as (
+    case when ended_at is null then null else greatest(0, floor(extract(epoch from ended_at - started_at) / 60)::int) end
+  ) stored,
+  created_at timestamptz not null default now()
+);
+
+create table public.training_programs (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  team_id uuid references public.teams(id) on delete set null,
+  objectives text not null,
+  exercises text,
+  athletic_preparation text,
+  technical_elements text,
+  final_notes text,
+  created_by uuid references public.users_profiles(id) on delete set null,
+  created_at timestamptz not null default now()
 );
 
 create table public.communications (
@@ -186,6 +217,28 @@ create table public.payments (
   created_at timestamptz not null default now()
 );
 
+create table public.athlete_memberships (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid not null references public.athletes(id) on delete cascade,
+  season text not null,
+  federation text,
+  card_number text,
+  status text not null default 'attiva',
+  source text,
+  imported_at timestamptz not null default now(),
+  unique (athlete_id, season, federation)
+);
+
+create table public.substitution_requests (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  absent_teacher_id uuid not null references public.users_profiles(id) on delete cascade,
+  substitute_teacher_id uuid references public.users_profiles(id) on delete set null,
+  reason text,
+  status text not null default 'richiesta',
+  created_at timestamptz not null default now()
+);
+
 create table public.gallery_items (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -231,7 +284,7 @@ security definer
 set search_path = public
 stable
 as $$
-  select coalesce(gv_private.current_role() = 'admin', false);
+  select coalesce(gv_private.current_role() in ('admin', 'presidente'), false);
 $$;
 
 create or replace function gv_private.is_coach_for_team(team_id_to_check uuid)
@@ -288,6 +341,8 @@ alter table public.team_members enable row level security;
 alter table public.events enable row level security;
 alter table public.event_teams enable row level security;
 alter table public.attendance enable row level security;
+alter table public.teacher_attendance enable row level security;
+alter table public.training_programs enable row level security;
 alter table public.communications enable row level security;
 alter table public.communication_teams enable row level security;
 alter table public.communication_reads enable row level security;
@@ -298,6 +353,8 @@ alter table public.goals enable row level security;
 alter table public.athlete_goals enable row level security;
 alter table public.medical_certificates enable row level security;
 alter table public.payments enable row level security;
+alter table public.athlete_memberships enable row level security;
+alter table public.substitution_requests enable row level security;
 alter table public.gallery_items enable row level security;
 alter table public.trial_requests enable row level security;
 
@@ -541,3 +598,42 @@ with check (
     where a.id = attendance.athlete_id and g.user_id = (select auth.uid())
   )
 );
+
+create policy "teacher attendance staff scoped" on public.teacher_attendance for select to authenticated
+using (
+  gv_private.is_admin()
+  or gv_private.current_role() in ('presidente', 'segreteria', 'direttore_tecnico')
+  or teacher_id = (select auth.uid())
+);
+create policy "teacher attendance staff manage own" on public.teacher_attendance for all to authenticated
+using (gv_private.is_admin() or teacher_id = (select auth.uid()) or gv_private.current_role() in ('presidente', 'direttore_tecnico'))
+with check (gv_private.is_admin() or teacher_id = (select auth.uid()) or gv_private.current_role() in ('presidente', 'direttore_tecnico'));
+
+create policy "training programs scoped select" on public.training_programs for select to authenticated
+using (
+  gv_private.is_admin()
+  or gv_private.current_role() in ('presidente', 'segreteria', 'direttore_tecnico')
+  or team_id is null
+  or gv_private.is_coach_for_team(team_id)
+  or exists (select 1 from public.team_members tm where tm.team_id = training_programs.team_id and gv_private.can_access_athlete(tm.athlete_id))
+);
+create policy "training programs staff manage" on public.training_programs for all to authenticated
+using (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'direttore_tecnico') or team_id is null or gv_private.is_coach_for_team(team_id))
+with check (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'direttore_tecnico') or team_id is null or gv_private.is_coach_for_team(team_id));
+
+create policy "memberships scoped select" on public.athlete_memberships for select to authenticated
+using (gv_private.can_access_athlete(athlete_id) or gv_private.current_role() in ('presidente', 'segreteria', 'direttore_tecnico'));
+create policy "memberships office manage" on public.athlete_memberships for all to authenticated
+using (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'segreteria'))
+with check (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'segreteria'));
+
+create policy "substitutions staff select" on public.substitution_requests for select to authenticated
+using (
+  gv_private.is_admin()
+  or gv_private.current_role() in ('presidente', 'direttore_tecnico')
+  or absent_teacher_id = (select auth.uid())
+  or substitute_teacher_id = (select auth.uid())
+);
+create policy "substitutions staff manage" on public.substitution_requests for all to authenticated
+using (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'direttore_tecnico') or absent_teacher_id = (select auth.uid()))
+with check (gv_private.is_admin() or gv_private.current_role() in ('presidente', 'direttore_tecnico') or absent_teacher_id = (select auth.uid()));

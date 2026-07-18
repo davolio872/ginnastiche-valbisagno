@@ -1,7 +1,19 @@
 import { supabase } from './supabase'
-import type { Role, UserProfile } from './types'
+import type { PaymentStatus, Role, UserProfile } from './types'
 
-export type TeamRow = { id: string; name: string; description: string | null; color: string; team_members: Array<{ coach_id: string | null }> }
+export type TeamRow = {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  season?: string | null
+  age_range?: string | null
+  level?: string | null
+  gym?: string | null
+  days?: string | null
+  times?: string | null
+  team_members: Array<{ coach_id: string | null }>
+}
 export type AthleteRow = {
   id: string
   first_name: string
@@ -35,6 +47,29 @@ export type AttendanceRow = {
   athletes: { first_name: string; last_name: string } | null
   events: { title: string; event_date: string } | null
 }
+export type TeacherAttendanceRow = {
+  id: string
+  teacher_id: string
+  event_id: string | null
+  started_at: string
+  ended_at: string | null
+  duration_minutes: number | null
+  users_profiles: { full_name: string } | null
+  events: { title: string; event_date: string } | null
+}
+export type TrainingProgramRow = {
+  id: string
+  event_id: string
+  team_id: string | null
+  objectives: string
+  exercises: string | null
+  athletic_preparation: string | null
+  technical_elements: string | null
+  final_notes: string | null
+  created_by: string | null
+  events: { title: string; event_date: string } | null
+  teams: { name: string } | null
+}
 export type CommunicationRow = {
   id: string
   title: string
@@ -64,6 +99,38 @@ export type TrialRow = {
   notes: string | null
   status: string
 }
+export type PaymentRow = {
+  id: string
+  athlete_id: string
+  description: string
+  amount: number
+  due_date: string
+  paid_at: string | null
+  status: PaymentStatus
+  receipt_url: string | null
+  athletes: { first_name: string; last_name: string } | null
+}
+export type MembershipRow = {
+  id: string
+  athlete_id: string
+  season: string
+  federation: string | null
+  card_number: string | null
+  status: string
+  source: string | null
+  athletes: { first_name: string; last_name: string } | null
+}
+export type SubstitutionRow = {
+  id: string
+  event_id: string
+  absent_teacher_id: string
+  substitute_teacher_id: string | null
+  reason: string | null
+  status: string
+  events: { title: string; event_date: string } | null
+  absent_teacher: { full_name: string } | null
+  substitute_teacher: { full_name: string } | null
+}
 export type GoalRow = {
   id: string
   athlete_id: string
@@ -73,6 +140,7 @@ export type GoalRow = {
   goals: { title: string; apparatus: string } | null
 }
 export type ProfileRow = UserProfile
+type SupabaseResult<T> = { data: T[] | null; error: { code?: string; message: string } | null }
 
 function client() {
   if (!supabase) throw new Error('Supabase non configurato')
@@ -87,7 +155,14 @@ export async function getProfile(userId: string): Promise<UserProfile> {
 
 export async function loadManagementData() {
   const db = client()
-  const [profiles, teams, athletes, events, attendance, communications, certificates, trials, goals, goalCatalog] =
+  const optional = async <T>(query: PromiseLike<SupabaseResult<T>>) => {
+    const result = await query
+    if (result.error && ['42P01', '42703'].includes(result.error.code ?? '')) return []
+    if (result.error) throw result.error
+    return result.data ?? []
+  }
+  const [profiles, teams, athletes, events, attendance, communications, certificates, trials, goals, goalCatalog,
+    teacherAttendance, trainingPrograms, payments, memberships, substitutions] =
     await Promise.all([
       db.from('users_profiles').select('*').order('full_name'),
       db.from('teams').select('*, team_members(coach_id)').order('name'),
@@ -108,6 +183,11 @@ export async function loadManagementData() {
       db.from('trial_requests').select('*').order('created_at', { ascending: false }),
       db.from('athlete_goals').select('*, goals(title,apparatus)').order('created_at', { ascending: false }),
       db.from('goals').select('*').order('title'),
+      optional<TeacherAttendanceRow>(db.from('teacher_attendance').select('*, users_profiles(full_name), events(title,event_date)').order('started_at', { ascending: false })),
+      optional<TrainingProgramRow>(db.from('training_programs').select('*, events(title,event_date), teams(name)').order('created_at', { ascending: false })),
+      optional<PaymentRow>(db.from('payments').select('*, athletes(first_name,last_name)').order('due_date')),
+      optional<MembershipRow>(db.from('athlete_memberships').select('*, athletes(first_name,last_name)').order('season', { ascending: false })),
+      optional<SubstitutionRow>(db.from('substitution_requests').select('*, events(title,event_date), absent_teacher:users_profiles!substitution_requests_absent_teacher_id_fkey(full_name), substitute_teacher:users_profiles!substitution_requests_substitute_teacher_id_fkey(full_name)').order('created_at', { ascending: false })),
     ])
   const failed = [profiles, teams, athletes, events, attendance, communications, certificates, trials, goals, goalCatalog].find(
     (result) => result.error,
@@ -141,18 +221,34 @@ export async function loadManagementData() {
     trials: (trials.data ?? []) as TrialRow[],
     goals: (goals.data ?? []) as GoalRow[],
     goalCatalog: goalCatalog.data ?? [],
+    teacherAttendance,
+    trainingPrograms,
+    payments,
+    memberships,
+    substitutions,
   }
 }
 
 export async function saveTeam(values: Record<string, unknown>, coachIds: string[], id?: string) {
   const db = client()
+  const teamValues = {
+    name: values.name,
+    description: values.description || null,
+    color: values.color || '#18aaa5',
+    season: values.season || null,
+    age_range: values.age_range || null,
+    level: values.level || null,
+    gym: values.gym || null,
+    days: values.days || null,
+    times: values.times || null,
+  }
   let teamId = id
   if (id) {
-    const { error } = await db.from('teams').update(values).eq('id', id)
+    const { error } = await db.from('teams').update(teamValues).eq('id', id)
     if (error) throw error
     await db.from('team_members').delete().eq('team_id', id).not('coach_id', 'is', null)
   } else {
-    const { data, error } = await db.from('teams').insert(values).select('id').single()
+    const { data, error } = await db.from('teams').insert(teamValues).select('id').single()
     if (error) throw error
     teamId = data.id
   }

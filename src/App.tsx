@@ -1,6 +1,7 @@
 import {
-  CalendarDays, CheckCircle2, ClipboardCheck, FileHeart, Home, LoaderCircle, LogOut,
-  Medal, MessageSquare, Pencil, Plus, ShieldCheck, Sparkles, Trash2, Users, X,
+  BarChart3, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileHeart, FileSpreadsheet,
+  Home, Import, Layers3, LoaderCircle, LogOut, Medal, MessageSquare, Pencil, Plus,
+  Repeat2, ShieldCheck, Sparkles, Trash2, Users, WalletCards, X,
 } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
@@ -9,7 +10,8 @@ import { PublicHome } from './components/PublicHome'
 import {
   createUser, getProfile, loadManagementData, removeRow, saveAthlete, saveEvent, saveSimple, saveTeam, uploadFile,
   type AthleteRow, type AttendanceRow, type CertificateRow, type CommunicationRow, type EventRow,
-  type GoalRow, type ProfileRow, type TeamRow, type TrialRow,
+  type GoalRow, type MembershipRow, type PaymentRow, type ProfileRow, type SubstitutionRow,
+  type TeamRow, type TrainingProgramRow, type TrialRow,
 } from './lib/database'
 import {
   createDemoUser, demoFile, loadDemoData, removeDemoRow, saveDemoAthlete, saveDemoEvent,
@@ -19,26 +21,75 @@ import { demoProfiles } from './lib/mockData'
 import { supabase } from './lib/supabase'
 import type { Role, UserProfile } from './lib/types'
 
-type Section = 'dashboard' | 'utenti' | 'atlete' | 'squadre' | 'calendario' | 'presenze' | 'comunicazioni' | 'certificati' | 'prove' | 'diario'
+type Section =
+  | 'dashboard'
+  | 'utenti'
+  | 'atlete'
+  | 'squadre'
+  | 'calendario'
+  | 'presenze'
+  | 'programmi'
+  | 'comunicazioni'
+  | 'certificati'
+  | 'pagamenti'
+  | 'prove'
+  | 'sostituzioni'
+  | 'importazioni'
+  | 'report'
+  | 'diario'
 type DataState = Awaited<ReturnType<typeof loadManagementData>>
 type Editor = { kind: Section; item?: Record<string, unknown> } | null
 
-const emptyData: DataState = { profiles: [], teams: [], athletes: [], events: [], attendance: [], communications: [], certificates: [], trials: [], goals: [], goalCatalog: [] }
+const emptyData: DataState = {
+  profiles: [],
+  teams: [],
+  athletes: [],
+  events: [],
+  attendance: [],
+  communications: [],
+  certificates: [],
+  trials: [],
+  goals: [],
+  goalCatalog: [],
+  teacherAttendance: [],
+  trainingPrograms: [],
+  payments: [],
+  memberships: [],
+  substitutions: [],
+}
 const navItems: Array<{ id: Section; label: string; icon: typeof Home; roles: Role[] }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['admin', 'tecnico', 'genitore', 'atleta'] },
-  { id: 'utenti', label: 'Utenti', icon: Users, roles: ['admin'] },
-  { id: 'atlete', label: 'Atlete', icon: Users, roles: ['admin', 'tecnico', 'genitore'] },
-  { id: 'squadre', label: 'Squadre', icon: ShieldCheck, roles: ['admin', 'tecnico'] },
-  { id: 'calendario', label: 'Calendario', icon: CalendarDays, roles: ['admin', 'tecnico', 'genitore', 'atleta'] },
-  { id: 'presenze', label: 'Presenze', icon: ClipboardCheck, roles: ['admin', 'tecnico', 'genitore'] },
-  { id: 'comunicazioni', label: 'Avvisi', icon: MessageSquare, roles: ['admin', 'tecnico', 'genitore', 'atleta'] },
-  { id: 'certificati', label: 'Certificati', icon: FileHeart, roles: ['admin', 'tecnico', 'genitore'] },
-  { id: 'prove', label: 'Prove', icon: Plus, roles: ['admin'] },
-  { id: 'diario', label: 'Diario', icon: Sparkles, roles: ['admin', 'tecnico', 'genitore', 'atleta'] },
+  { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia', 'atleta'] },
+  { id: 'utenti', label: 'Utenti', icon: Users, roles: ['admin', 'presidente'] },
+  { id: 'atlete', label: 'Atlete', icon: Users, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia'] },
+  { id: 'squadre', label: 'Gruppi', icon: ShieldCheck, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia'] },
+  { id: 'calendario', label: 'Calendario', icon: CalendarDays, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia', 'atleta'] },
+  { id: 'presenze', label: 'Presenze', icon: ClipboardCheck, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia'] },
+  { id: 'programmi', label: 'Lezioni', icon: Layers3, roles: ['admin', 'presidente', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia'] },
+  { id: 'comunicazioni', label: 'Bacheca', icon: MessageSquare, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia', 'atleta'] },
+  { id: 'certificati', label: 'Certificati', icon: FileHeart, roles: ['admin', 'presidente', 'segreteria', 'genitore', 'famiglia'] },
+  { id: 'pagamenti', label: 'Pagamenti', icon: WalletCards, roles: ['admin', 'presidente', 'segreteria', 'genitore', 'famiglia'] },
+  { id: 'prove', label: 'Prove', icon: Plus, roles: ['admin', 'presidente', 'segreteria'] },
+  { id: 'sostituzioni', label: 'Sostituzioni', icon: Repeat2, roles: ['admin', 'presidente', 'direttore_tecnico', 'tecnico', 'insegnante'] },
+  { id: 'importazioni', label: 'Import', icon: Import, roles: ['admin', 'presidente', 'segreteria'] },
+  { id: 'report', label: 'Report', icon: BarChart3, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico'] },
+  { id: 'diario', label: 'Timeline', icon: Sparkles, roles: ['admin', 'presidente', 'segreteria', 'direttore_tecnico', 'tecnico', 'insegnante', 'genitore', 'famiglia', 'atleta'] },
 ]
-const roleLabel: Record<Role, string> = { admin: 'Amministratore', tecnico: 'Tecnico', genitore: 'Genitore', atleta: 'Atleta' }
+const roleLabel: Record<Role, string> = {
+  admin: 'Presidente / Amministratore',
+  presidente: 'Presidente',
+  segreteria: 'Segreteria',
+  direttore_tecnico: 'Direttore Tecnico',
+  tecnico: 'Tecnico',
+  insegnante: 'Insegnante',
+  genitore: 'Famiglia',
+  famiglia: 'Famiglia',
+  atleta: 'Atleta',
+}
 const canManage = (profile: UserProfile, section: Section) =>
-  profile.role === 'admin' || (profile.role === 'tecnico' && ['calendario', 'presenze', 'comunicazioni', 'diario'].includes(section))
+  ['admin', 'presidente'].includes(profile.role) ||
+  (profile.role === 'segreteria' && ['atlete', 'calendario', 'comunicazioni', 'certificati', 'pagamenti', 'prove', 'importazioni'].includes(section)) ||
+  (['direttore_tecnico', 'tecnico', 'insegnante'].includes(profile.role) && ['calendario', 'presenze', 'programmi', 'comunicazioni', 'diario', 'sostituzioni'].includes(section)) ||
+  (['genitore', 'famiglia'].includes(profile.role) && ['presenze', 'certificati'].includes(section))
 const dateLabel = (value?: string | null) => value ? new Intl.DateTimeFormat('it-IT').format(new Date(`${value}T00:00:00`)) : '-'
 const certificateState = (expires?: string | null) => {
   if (!expires) return { label: 'Mancante', className: 'bg-slate-100 text-slate-700' }
@@ -125,9 +176,14 @@ export default function App() {
               {section === 'squadre' && <Teams data={data} editable={actions} edit={(item) => setEditor({ kind: 'squadre', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('teams', id)} />}
               {section === 'calendario' && <Calendar data={data} editable={actions} edit={(item) => setEditor({ kind: 'calendario', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('events', id)} />}
               {section === 'presenze' && <Attendance data={data} editable={actions} edit={(item) => setEditor({ kind: 'presenze', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('attendance', id)} />}
+              {section === 'programmi' && <Programs data={data} editable={actions} edit={(item) => setEditor({ kind: 'programmi', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('training_programs', id)} />}
               {section === 'comunicazioni' && <Communications data={data} editable={actions} edit={(item) => setEditor({ kind: 'comunicazioni', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('communications', id)} />}
-              {section === 'certificati' && <Certificates data={data} editable={profile.role === 'admin' || profile.role === 'genitore'} edit={(item) => setEditor({ kind: 'certificati', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('medical_certificates', id)} />}
+              {section === 'certificati' && <Certificates data={data} editable={['admin', 'presidente', 'segreteria', 'genitore', 'famiglia'].includes(profile.role)} edit={(item) => setEditor({ kind: 'certificati', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('medical_certificates', id)} />}
+              {section === 'pagamenti' && <Payments data={data} editable={actions} edit={(item) => setEditor({ kind: 'pagamenti', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('payments', id)} />}
               {section === 'prove' && <Trials data={data} edit={(item) => setEditor({ kind: 'prove', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('trial_requests', id)} />}
+              {section === 'sostituzioni' && <Substitutions data={data} editable={actions} edit={(item) => setEditor({ kind: 'sostituzioni', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('substitution_requests', id)} />}
+              {section === 'importazioni' && <Imports data={data} editable={actions} edit={(item) => setEditor({ kind: 'importazioni', item: item as unknown as Record<string, unknown> })} />}
+              {section === 'report' && <Reports data={data} />}
               {section === 'diario' && <Diary data={data} editable={actions} edit={(item) => setEditor({ kind: 'diario', item: item as unknown as Record<string, unknown> })} remove={(id) => remove('athlete_goals', id)} />}
             </>
           )}
@@ -154,6 +210,10 @@ function Dashboard({ profile, data, setSection }: { profile: UserProfile; data: 
   const next = data.events.find((event) => new Date(`${event.event_date}T23:59:59`) >= new Date())
   const competition = data.events.find((event) => event.type === 'gara' && new Date(`${event.event_date}T23:59:59`) >= new Date())
   const cert = certificateState(data.athletes[0]?.medical_certificate_expires_at)
+  const today = new Date().toISOString().slice(0, 10)
+  const todayEvents = data.events.filter((event) => event.event_date === today)
+  const openPayments = data.payments.filter((row) => !['pagato', 'esonerato'].includes(row.status))
+  const criticalCertificates = data.certificates.filter((row) => certificateState(row.expires_at).label !== 'Valido')
   return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
     <section className="rounded-lg bg-white p-6 shadow-soft">
       <p className="text-sm font-bold uppercase text-brand-600">Benvenuta/o</p><h2 className="mt-1 text-3xl font-black text-brand-900">{profile.full_name}</h2>
@@ -162,7 +222,13 @@ function Dashboard({ profile, data, setSection }: { profile: UserProfile; data: 
         <Metric icon={Medal} label="Prossima gara" value={competition?.title ?? 'Da definire'} />
         <Metric icon={FileHeart} label="Certificato" value={cert.label} />
       </div>
-      <button onClick={() => setSection('presenze')} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-900 px-5 py-3 font-bold text-white"><ClipboardCheck size={19} />Segnala o registra assenza</button>
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        <Metric icon={CalendarDays} label="Oggi" value={`${todayEvents.length} lezioni`} />
+        <Metric icon={Users} label="Presenti" value={String(data.attendance.filter((row) => row.status === 'presente').length)} />
+        <Metric icon={FileHeart} label="Certificati critici" value={String(criticalCertificates.length)} />
+        <Metric icon={WalletCards} label="Quote aperte" value={`€ ${openPayments.reduce((sum, row) => sum + Number(row.amount), 0).toFixed(0)}`} />
+      </div>
+      <div className="mt-5 flex flex-wrap gap-3"><button onClick={() => setSection('presenze')} className="inline-flex items-center gap-2 rounded-lg bg-brand-900 px-5 py-3 font-bold text-white"><ClipboardCheck size={19} />Segnala o registra assenza</button><button onClick={() => setSection('report')} className="inline-flex items-center gap-2 rounded-lg border border-brand-200 px-5 py-3 font-bold text-brand-900"><BarChart3 size={19} />Report</button></div>
     </section>
     <section className="sport-lines rounded-lg p-6 text-white shadow-soft"><h3 className="text-xl font-black">Comunicazioni</h3><div className="mt-4 space-y-3">{data.communications.slice(0, 3).map((item) => <article key={item.id} className="rounded-lg bg-white/10 p-4"><p className="text-xs font-bold uppercase text-brand-100">{item.category}</p><h4 className="mt-1 font-bold">{item.title}</h4><p className="mt-1 text-sm text-brand-50">{item.body}</p></article>)}{!data.communications.length && <p className="text-brand-50">Nessuna comunicazione.</p>}</div></section>
   </div>
@@ -182,7 +248,15 @@ function Profiles({ data, edit }: { data: DataState; edit: (i: ProfileRow) => vo
   return <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Nome</th><th className="p-4">Email</th><th className="p-4">Ruolo</th><th className="p-4">Telefono</th><th /></tr></thead><tbody>{data.profiles.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.full_name}</td><td className="p-4">{row.email}</td><td className="p-4"><Badge>{row.role}</Badge></td><td className="p-4">{row.phone || '-'}</td><td className="p-2"><button title="Modifica profilo" onClick={() => edit(row)} className="rounded-md p-2 text-brand-700 hover:bg-brand-50"><Pencil size={17} /></button></td></tr>)}</tbody></table></div>
 }
 function Teams({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: TeamRow) => void; remove: (id: string) => void }) {
-  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.teams.map((team) => <article key={team.id} className="rounded-lg bg-white p-5 shadow-soft"><div className="flex items-start justify-between"><div className="flex items-center gap-3"><span className="h-4 w-4 rounded-full" style={{ backgroundColor: team.color }} /><h3 className="text-xl font-black text-brand-900">{team.name}</h3></div>{editable && <Actions edit={() => edit(team)} remove={() => remove(team.id)} />}</div><p className="mt-3 text-slate-600">{team.description}</p><p className="mt-4 text-sm font-bold text-brand-700">{data.athletes.filter((a) => a.team_members.some((m) => m.team_id === team.id)).length} atlete</p></article>)}</div>
+  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.teams.map((team) => {
+    const teachers = team.team_members.map((member) => data.profiles.find((profile) => profile.id === member.coach_id)?.full_name).filter(Boolean).join(', ')
+    return <article key={team.id} className="rounded-lg bg-white p-5 shadow-soft"><div className="flex items-start justify-between"><div className="flex items-center gap-3"><span className="h-4 w-4 rounded-full" style={{ backgroundColor: team.color }} /><h3 className="text-xl font-black text-brand-900">{team.name}</h3></div>{editable && <Actions edit={() => edit(team)} remove={() => remove(team.id)} />}</div><p className="mt-3 text-slate-600">{team.description}</p>
+      <div className="mt-4 grid gap-2 text-sm text-slate-600">
+        <p><strong>Stagione:</strong> {team.season ?? '-'}</p><p><strong>Fascia:</strong> {team.age_range ?? '-'}</p><p><strong>Livello:</strong> {team.level ?? '-'}</p><p><strong>Palestra:</strong> {team.gym ?? '-'}</p><p><strong>Giorni/orari:</strong> {team.days ?? '-'} {team.times ? `· ${team.times}` : ''}</p><p><strong>Insegnanti:</strong> {teachers || '-'}</p>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2"><Badge>{data.athletes.filter((a) => a.team_members.some((m) => m.team_id === team.id)).length} atlete</Badge><Badge>{data.communications.length} avvisi</Badge><Badge>{data.events.filter((event) => event.event_teams.some((row) => row.team_id === team.id)).length} eventi</Badge></div>
+    </article>
+  })}</div>
 }
 function Calendar({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: EventRow) => void; remove: (id: string) => void }) {
   if (!data.events.length) return <Empty text="Nessun evento in calendario." />
@@ -190,7 +264,70 @@ function Calendar({ data, editable, edit, remove }: { data: DataState; editable:
 }
 function Attendance({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: AttendanceRow) => void; remove: (id: string) => void }) {
   if (!data.attendance.length) return <Empty text="Nessuna presenza registrata." />
-  return <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Atleta</th><th className="p-4">Evento</th><th className="p-4">Stato</th><th className="p-4">Note</th><th /></tr></thead><tbody>{data.attendance.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.athletes?.first_name} {row.athletes?.last_name}</td><td className="p-4">{row.events?.title}<small className="block text-slate-500">{dateLabel(row.events?.event_date)}</small></td><td className="p-4"><Badge>{row.status}</Badge></td><td className="p-4">{row.notes || '-'}</td><td className="p-2">{editable && <Actions edit={() => edit(row)} remove={() => remove(row.id)} />}</td></tr>)}</tbody></table></div>
+  return <div className="space-y-5">
+    <TeacherPresencePanel data={data} />
+    <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Atleta</th><th className="p-4">Evento</th><th className="p-4">Stato</th><th className="p-4">Note</th><th /></tr></thead><tbody>{data.attendance.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.athletes?.first_name} {row.athletes?.last_name}</td><td className="p-4">{row.events?.title}<small className="block text-slate-500">{dateLabel(row.events?.event_date)}</small></td><td className="p-4"><Badge>{row.status}</Badge></td><td className="p-4">{row.notes || '-'}</td><td className="p-2">{editable && <Actions edit={() => edit(row)} remove={() => remove(row.id)} />}</td></tr>)}</tbody></table></div>
+  </div>
+}
+
+function TeacherPresencePanel({ data }: { data: DataState }) {
+  const totalMinutes = data.teacherAttendance.reduce((sum, row) => sum + (row.duration_minutes ?? 0), 0)
+  return <section className="rounded-lg bg-white p-5 shadow-soft">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><p className="text-sm font-bold uppercase text-brand-600">Presenze insegnanti</p><h3 className="text-xl font-black text-brand-900">Timbrature e ore lezione</h3></div>
+      <div className="flex gap-2"><button className="rounded-lg bg-brand-900 px-4 py-3 text-sm font-black text-white"><Clock3 className="mr-2 inline" size={17} />Inizio allenamento</button><button className="rounded-lg border border-brand-200 px-4 py-3 text-sm font-black text-brand-900">Fine allenamento</button></div>
+    </div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <Metric icon={Users} label="Insegnanti registrate" value={String(new Set(data.teacherAttendance.map((row) => row.teacher_id)).size)} />
+      <Metric icon={Clock3} label="Ore totali" value={`${Math.round(totalMinutes / 60)} h`} />
+      <Metric icon={CalendarDays} label="Lezioni tracciate" value={String(data.teacherAttendance.length)} />
+    </div>
+  </section>
+}
+
+function Programs({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: TrainingProgramRow) => void; remove: (id: string) => void }) {
+  if (!data.trainingPrograms.length) return <Empty text="Nessun programma allenamento inserito." />
+  return <div className="grid gap-4 lg:grid-cols-2">{data.trainingPrograms.map((item) => <article key={item.id} className="rounded-lg bg-white p-5 shadow-soft">
+    <div className="flex justify-between gap-3"><div><Badge>{item.teams?.name ?? 'Gruppo'}</Badge><h3 className="mt-2 text-xl font-black text-brand-900">{item.events?.title}</h3><p className="text-sm font-semibold text-slate-500">{dateLabel(item.events?.event_date)}</p></div>{editable && <Actions edit={() => edit(item)} remove={() => remove(item.id)} />}</div>
+    <div className="mt-4 grid gap-3 text-sm"><InfoBlock title="Obiettivi" text={item.objectives} /><InfoBlock title="Esercizi" text={item.exercises} /><InfoBlock title="Preparazione" text={item.athletic_preparation} /><InfoBlock title="Elementi tecnici" text={item.technical_elements} /><InfoBlock title="Note finali" text={item.final_notes} /></div>
+  </article>)}</div>
+}
+
+function InfoBlock({ title, text }: { title: string; text?: string | null }) {
+  if (!text) return null
+  return <div className="rounded-lg bg-brand-50 p-3"><p className="text-xs font-black uppercase text-brand-700">{title}</p><p className="mt-1 text-slate-700">{text}</p></div>
+}
+
+function Payments({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: PaymentRow) => void; remove: (id: string) => void }) {
+  const due = data.payments.filter((row) => !['pagato', 'esonerato'].includes(row.status))
+  return <div className="space-y-5">
+    <div className="grid gap-3 sm:grid-cols-3"><Metric icon={WalletCards} label="Da incassare" value={`€ ${due.reduce((sum, row) => sum + Number(row.amount), 0).toFixed(2)}`} /><Metric icon={CheckCircle2} label="Pagati" value={String(data.payments.filter((row) => row.status === 'pagato').length)} /><Metric icon={FileSpreadsheet} label="Voci" value={String(data.payments.length)} /></div>
+    {!data.payments.length ? <Empty text="Nessun pagamento registrato." /> : <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Atleta</th><th className="p-4">Descrizione</th><th className="p-4">Importo</th><th className="p-4">Scadenza</th><th className="p-4">Stato</th><th /></tr></thead><tbody>{data.payments.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.athletes?.first_name} {row.athletes?.last_name}</td><td className="p-4">{row.description}</td><td className="p-4">€ {Number(row.amount).toFixed(2)}</td><td className="p-4">{dateLabel(row.due_date)}</td><td className="p-4"><Badge>{row.status}</Badge></td><td className="p-2">{editable && <Actions edit={() => edit(row)} remove={() => remove(row.id)} />}</td></tr>)}</tbody></table></div>}
+  </div>
+}
+
+function Substitutions({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: SubstitutionRow) => void; remove: (id: string) => void }) {
+  if (!data.substitutions.length) return <Empty text="Nessuna sostituzione richiesta." />
+  return <div className="grid gap-4 md:grid-cols-2">{data.substitutions.map((item) => <article key={item.id} className="rounded-lg bg-white p-5 shadow-soft"><div className="flex justify-between gap-2"><div><Badge>{item.status}</Badge><h3 className="mt-2 text-xl font-black text-brand-900">{item.events?.title}</h3><p className="text-sm text-slate-500">{dateLabel(item.events?.event_date)}</p></div>{editable && <Actions edit={() => edit(item)} remove={() => remove(item.id)} />}</div><p className="mt-4"><strong>Assente:</strong> {item.absent_teacher?.full_name}</p><p><strong>Sostituta:</strong> {item.substitute_teacher?.full_name ?? 'Da assegnare'}</p>{item.reason && <p className="mt-3 rounded-lg bg-brand-50 p-3 text-sm">{item.reason}</p>}</article>)}</div>
+}
+
+function Imports({ data, editable, edit }: { data: DataState; editable: boolean; edit: (i: MembershipRow) => void }) {
+  const renewed = data.memberships.filter((row) => row.status === 'attiva').length
+  return <div className="space-y-5">
+    <section className="rounded-lg bg-white p-5 shadow-soft"><p className="text-sm font-bold uppercase text-brand-600">Importazione Excel / UISP</p><h3 className="mt-1 text-2xl font-black text-brand-900">Anteprima intelligente</h3><p className="mt-2 text-slate-600">La Beta conserva una sola anagrafica per atleta e aggiunge il tesseramento stagionale allo storico. Durante il rinnovo non sovrascrive certificati, contatti, note tecniche, presenze o pagamenti.</p><div className="mt-4 grid gap-3 sm:grid-cols-4"><Metric icon={Plus} label="Nuovi" value="0" /><Metric icon={Repeat2} label="Rinnovati" value={String(renewed)} /><Metric icon={ShieldCheck} label="Duplicati" value="0" /><Metric icon={X} label="Non rinnovati" value="0" /></div><button disabled={!editable} className="mt-5 rounded-lg bg-brand-900 px-5 py-3 font-black text-white disabled:opacity-50">Carica file Excel</button></section>
+    <div className="grid gap-4 md:grid-cols-2">{data.memberships.map((item) => <article key={item.id} className="rounded-lg bg-white p-5 shadow-soft"><div className="flex justify-between gap-2"><div><h3 className="text-lg font-black text-brand-900">{item.athletes?.first_name} {item.athletes?.last_name}</h3><p className="text-sm text-slate-500">{item.season} · {item.federation}</p></div>{editable && <button title="Modifica" onClick={() => edit(item)} className="rounded-md p-2 text-brand-700 hover:bg-brand-50"><Pencil size={17} /></button>}</div><p className="mt-3">Tessera: <strong>{item.card_number ?? '-'}</strong></p><Badge>{item.status}</Badge></article>)}</div>
+  </div>
+}
+
+function Reports({ data }: { data: DataState }) {
+  const rows = [
+    ['Atlete', data.athletes.length],
+    ['Presenze', data.attendance.length],
+    ['Ore insegnanti', Math.round(data.teacherAttendance.reduce((sum, row) => sum + (row.duration_minutes ?? 0), 0) / 60)],
+    ['Certificati in scadenza/scaduti', data.certificates.filter((row) => certificateState(row.expires_at).label !== 'Valido').length],
+    ['Pagamenti aperti', data.payments.filter((row) => !['pagato', 'esonerato'].includes(row.status)).length],
+  ]
+  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map(([label, value]) => <article key={label} className="rounded-lg bg-white p-5 shadow-soft"><BarChart3 className="text-brand-700" /><p className="mt-4 text-sm font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-4xl font-black text-brand-900">{value}</p><button className="mt-4 rounded-lg border border-brand-200 px-4 py-3 text-sm font-black text-brand-900">Esporta PDF / Excel</button></article>)}</div>
 }
 function Communications({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: CommunicationRow) => void; remove: (id: string) => void }) {
   if (!data.communications.length) return <Empty text="Nessuna comunicazione pubblicata." />
@@ -233,6 +370,7 @@ function EditorModal({ editor, data, profile, demoMode, close, saved, fail }: { 
       }
       if (editor.kind === 'calendario') await (demoMode ? saveDemoEvent : saveEvent)(values, checked('team_ids'), id)
       if (editor.kind === 'presenze') await (demoMode ? saveDemoSimple : saveSimple)('attendance', { athlete_id: values.athlete_id, event_id: values.event_id, status: values.status, notes: values.notes || null, reported_by: profile.id }, id)
+      if (editor.kind === 'programmi') await (demoMode ? saveDemoSimple : saveSimple)('training_programs', { event_id: values.event_id, team_id: values.team_id || null, objectives: values.objectives, exercises: values.exercises || null, athletic_preparation: values.athletic_preparation || null, technical_elements: values.technical_elements || null, final_notes: values.final_notes || null, created_by: profile.id }, id)
       if (editor.kind === 'comunicazioni') await (demoMode ? saveDemoSimple : saveSimple)('communications', { title: values.title, body: values.body, category: values.category, is_urgent: values.is_urgent === 'on', requires_read_confirmation: values.requires_read_confirmation === 'on', created_by: profile.id, published_at: item.published_at ?? new Date().toISOString() }, id)
       if (editor.kind === 'certificati') {
         let fileUrl = (item.storage_path ?? item.file_url) as string | undefined
@@ -241,7 +379,10 @@ function EditorModal({ editor, data, profile, demoMode, close, saved, fail }: { 
         const status = certificateState(values.expires_at as string).label.toLowerCase()
         await (demoMode ? saveDemoSimple : saveSimple)('medical_certificates', { athlete_id: values.athlete_id, file_url: fileUrl, expires_at: values.expires_at, status, uploaded_by: profile.id }, id)
       }
+      if (editor.kind === 'pagamenti') await (demoMode ? saveDemoSimple : saveSimple)('payments', { athlete_id: values.athlete_id, description: values.description, amount: Number(values.amount), due_date: values.due_date, paid_at: values.paid_at || null, status: values.status, receipt_url: item.receipt_url ?? null }, id)
       if (editor.kind === 'prove') await (demoMode ? saveDemoSimple : saveSimple)('trial_requests', { status: values.status }, id)
+      if (editor.kind === 'sostituzioni') await (demoMode ? saveDemoSimple : saveSimple)('substitution_requests', { event_id: values.event_id, absent_teacher_id: values.absent_teacher_id, substitute_teacher_id: values.substitute_teacher_id || null, reason: values.reason || null, status: values.status }, id)
+      if (editor.kind === 'importazioni') await (demoMode ? saveDemoSimple : saveSimple)('athlete_memberships', { athlete_id: values.athlete_id, season: values.season, federation: values.federation || null, card_number: values.card_number || null, status: values.status, source: values.source || 'manuale' }, id)
       if (editor.kind === 'diario') await (demoMode ? saveDemoSimple : saveSimple)('athlete_goals', { athlete_id: values.athlete_id, goal_id: values.goal_id, status: values.status, coach_note: values.coach_note || null, assigned_by: profile.id }, id)
       await saved()
     } catch (cause) { fail(cause instanceof Error ? cause.message : 'Salvataggio non riuscito') } finally { setSaving(false) }
@@ -258,16 +399,16 @@ function EditorModal({ editor, data, profile, demoMode, close, saved, fail }: { 
 function EditorFields({ kind, item, data }: { kind: Section; item: Record<string, unknown>; data: DataState }) {
   const input = (name: string, label: string, type = 'text', required = true, value?: unknown) => <Field label={label}><input name={name} type={type} required={required} defaultValue={String(value ?? item[name] ?? '')} className="input" /></Field>
   const option = (value: string, label = value) => <option key={value} value={value}>{label}</option>
-  if (kind === 'utenti') return <>{input('full_name','Nome e cognome')}{input('email','Email','email',!item.id)}{input('phone','Telefono','tel',false)}<Field label="Ruolo"><select name="role" defaultValue={String(item.role ?? 'genitore')} className="input">{['admin','tecnico','genitore','atleta'].map((v) => option(v))}</select></Field>{!item.id && input('password','Password iniziale','password')}</>
+  if (kind === 'utenti') return <>{input('full_name','Nome e cognome')}{input('email','Email','email',!item.id)}{input('phone','Telefono','tel',false)}<Field label="Ruolo"><select name="role" defaultValue={String(item.role ?? 'famiglia')} className="input">{['admin','presidente','segreteria','direttore_tecnico','insegnante','tecnico','famiglia','genitore'].map((v) => option(v))}</select></Field>{!item.id && input('password','Password iniziale','password')}</>
   if (kind === 'squadre') {
     const team = item as unknown as TeamRow
-    return <>{input('name', 'Nome')}{input('color', 'Colore', 'color', true, item.color ?? '#0f766e')}<Field label="Descrizione" wide><textarea name="description" defaultValue={String(item.description ?? '')} className="input min-h-24" /></Field><Checks label="Tecnici assegnati" name="coach_ids" data={data.profiles.filter((p) => p.role === 'tecnico').map((p) => ({ id:p.id,label:p.full_name }))} selected={team.team_members?.map((m) => m.coach_id).filter((id): id is string => Boolean(id)) ?? []} /></>
+    return <>{input('name', 'Nome')}{input('season', 'Stagione sportiva', 'text', false)}{input('age_range', 'Fascia eta', 'text', false)}{input('level', 'Livello', 'text', false)}{input('gym', 'Palestra', 'text', false)}{input('days', 'Giorni', 'text', false)}{input('times', 'Orari', 'text', false)}{input('color', 'Colore', 'color', true, item.color ?? '#0f766e')}<Field label="Descrizione" wide><textarea name="description" defaultValue={String(item.description ?? '')} className="input min-h-24" /></Field><Checks label="Insegnanti assegnate" name="coach_ids" data={data.profiles.filter((p) => ['tecnico','insegnante','direttore_tecnico'].includes(p.role)).map((p) => ({ id:p.id,label:p.full_name }))} selected={team.team_members?.map((m) => m.coach_id).filter((id): id is string => Boolean(id)) ?? []} /></>
   }
   if (kind === 'atlete') {
     const athlete = item as unknown as AthleteRow
     return <>{input('first_name', 'Nome')}{input('last_name', 'Cognome')}{input('birth_date', 'Data di nascita', 'date')}{input('medical_certificate_expires_at', 'Scadenza certificato', 'date', false)}
       {input('guardian_name', 'Nome genitore', 'text', true, athlete.guardians?.full_name)}{input('guardian_phone', 'Telefono genitore', 'tel', false, athlete.guardians?.phone)}{input('guardian_email', 'Email genitore', 'email', true, athlete.guardians?.email)}
-      <SelectRows optional name="guardian_user_id" label="Account genitore" value={athlete.guardians?.user_id} rows={data.profiles.filter((p) => p.role === 'genitore').map((p) => ({ id:p.id,label:p.full_name }))} />
+      <SelectRows optional name="guardian_user_id" label="Account famiglia" value={athlete.guardians?.user_id} rows={data.profiles.filter((p) => ['genitore','famiglia'].includes(p.role)).map((p) => ({ id:p.id,label:p.full_name }))} />
       <SelectRows optional name="athlete_user_id" label="Account atleta" value={athlete.user_id} rows={data.profiles.filter((p) => p.role === 'atleta').map((p) => ({ id:p.id,label:p.full_name }))} />
       <Field label="Foto profilo"><input name="photo" type="file" accept="image/*" className="input" /></Field><Field label="Note sanitarie" wide><textarea name="medical_notes" defaultValue={String(item.medical_notes ?? '')} className="input min-h-20" /></Field>
       <Checks label="Squadre" name="team_ids" data={data.teams.map((t) => ({ id: t.id, label: t.name }))} selected={athlete.team_members?.map((m) => m.team_id) ?? []} /></>
@@ -277,9 +418,13 @@ function EditorFields({ kind, item, data }: { kind: Section; item: Record<string
     return <><Field label="Tipo"><select name="type" defaultValue={String(item.type ?? 'allenamento')} className="input">{['allenamento','gara','saggio','stage','riunione','chiusura'].map((v) => option(v))}</select></Field>{input('title','Titolo')}{input('event_date','Data','date')}{input('starts_at','Ora inizio','time',false)}{input('ends_at','Ora fine','time',false)}{input('location','Luogo','text',false)}<Field label="Descrizione" wide><textarea name="description" defaultValue={String(item.description ?? '')} className="input min-h-20" /></Field><Checks label="Gruppi coinvolti" name="team_ids" data={data.teams.map((t) => ({ id:t.id,label:t.name }))} selected={event.event_teams?.map((t) => t.team_id) ?? []} /></>
   }
   if (kind === 'presenze') return <><SelectRows name="athlete_id" label="Atleta" value={item.athlete_id} rows={data.athletes.map((a) => ({ id:a.id,label:`${a.first_name} ${a.last_name}` }))} /><SelectRows name="event_id" label="Evento" value={item.event_id} rows={data.events.map((e) => ({ id:e.id,label:`${dateLabel(e.event_date)} · ${e.title}` }))} /><Field label="Stato"><select name="status" defaultValue={String(item.status ?? 'presente')} className="input">{['presente','assente','ritardo','uscita anticipata'].map((v) => option(v))}</select></Field>{input('notes','Note','text',false)}</>
+  if (kind === 'programmi') return <><SelectRows name="event_id" label="Lezione/evento" value={item.event_id} rows={data.events.map((e) => ({ id:e.id,label:`${dateLabel(e.event_date)} - ${e.title}` }))} /><SelectRows optional name="team_id" label="Gruppo" value={item.team_id} rows={data.teams.map((t) => ({ id:t.id,label:t.name }))} /><Field label="Obiettivi" wide><textarea required name="objectives" defaultValue={String(item.objectives ?? '')} className="input min-h-20" /></Field><Field label="Esercizi" wide><textarea name="exercises" defaultValue={String(item.exercises ?? '')} className="input min-h-20" /></Field><Field label="Preparazione atletica" wide><textarea name="athletic_preparation" defaultValue={String(item.athletic_preparation ?? '')} className="input min-h-20" /></Field><Field label="Elementi tecnici" wide><textarea name="technical_elements" defaultValue={String(item.technical_elements ?? '')} className="input min-h-20" /></Field><Field label="Note finali" wide><textarea name="final_notes" defaultValue={String(item.final_notes ?? '')} className="input min-h-20" /></Field></>
   if (kind === 'comunicazioni') return <>{input('title','Titolo')}<Field label="Categoria"><select name="category" defaultValue={String(item.category ?? 'allenamenti')} className="input">{['allenamenti','gare','documenti','quote','eventi','urgente'].map((v) => option(v))}</select></Field><Field label="Testo" wide><textarea required name="body" defaultValue={String(item.body ?? '')} className="input min-h-32" /></Field><Check name="is_urgent" label="Comunicazione urgente" checked={Boolean(item.is_urgent)} /><Check name="requires_read_confirmation" label="Richiedi conferma lettura" checked={Boolean(item.requires_read_confirmation)} /></>
   if (kind === 'certificati') return <><SelectRows name="athlete_id" label="Atleta" value={item.athlete_id} rows={data.athletes.map((a) => ({ id:a.id,label:`${a.first_name} ${a.last_name}` }))} />{input('expires_at','Data di scadenza','date')}<Field label="Documento PDF o immagine" wide><input name="file" type="file" accept="application/pdf,image/*" className="input" /></Field></>
+  if (kind === 'pagamenti') return <><SelectRows name="athlete_id" label="Atleta" value={item.athlete_id} rows={data.athletes.map((a) => ({ id:a.id,label:`${a.first_name} ${a.last_name}` }))} />{input('description','Descrizione')}{input('amount','Importo','number')}{input('due_date','Scadenza','date')}{input('paid_at','Data pagamento','date',false)}<Field label="Stato"><select name="status" defaultValue={String(item.status ?? 'non pagato')} className="input">{['pagato','non pagato','parziale','esonerato','scaduto'].map((v) => option(v))}</select></Field></>
   if (kind === 'prove') return <><div className="sm:col-span-2 rounded-lg bg-brand-50 p-4"><strong>{String(item.child_name)}</strong><p className="text-sm">{String(item.guardian_name)} · {String(item.phone)}</p></div><Field label="Stato" wide><select name="status" defaultValue={String(item.status ?? 'nuova')} className="input">{['nuova','contattata','prova fissata','iscritta','non interessata'].map((v) => option(v))}</select></Field></>
+  if (kind === 'sostituzioni') return <><SelectRows name="event_id" label="Lezione" value={item.event_id} rows={data.events.map((e) => ({ id:e.id,label:`${dateLabel(e.event_date)} - ${e.title}` }))} /><SelectRows name="absent_teacher_id" label="Insegnante assente" value={item.absent_teacher_id} rows={data.profiles.filter((p) => ['tecnico','insegnante','direttore_tecnico'].includes(p.role)).map((p) => ({ id:p.id,label:p.full_name }))} /><SelectRows optional name="substitute_teacher_id" label="Sostituta" value={item.substitute_teacher_id} rows={data.profiles.filter((p) => ['tecnico','insegnante','direttore_tecnico'].includes(p.role)).map((p) => ({ id:p.id,label:p.full_name }))} /><Field label="Stato"><select name="status" defaultValue={String(item.status ?? 'richiesta')} className="input">{['richiesta','assegnata','rifiutata','completata'].map((v) => option(v))}</select></Field>{input('reason','Motivo','text',false)}</>
+  if (kind === 'importazioni') return <><SelectRows name="athlete_id" label="Atleta" value={item.athlete_id} rows={data.athletes.map((a) => ({ id:a.id,label:`${a.first_name} ${a.last_name}` }))} />{input('season','Stagione','text',true, item.season ?? '2026/2027')}{input('federation','Federazione','text',false)}{input('card_number','Numero tessera','text',false)}<Field label="Stato"><select name="status" defaultValue={String(item.status ?? 'attiva')} className="input">{['attiva','scaduta','non rinnovata','possibile duplicato'].map((v) => option(v))}</select></Field>{input('source','Origine','text',false)}</>
   if (kind === 'diario') return <><SelectRows name="athlete_id" label="Atleta" value={item.athlete_id} rows={data.athletes.map((a) => ({ id:a.id,label:`${a.first_name} ${a.last_name}` }))} /><SelectRows name="goal_id" label="Obiettivo" value={(item.goals as { id?: string } | undefined)?.id ?? item.goal_id} rows={data.goalCatalog.map((g) => ({ id:g.id,label:`${g.title} · ${g.apparatus}` }))} /><Field label="Stato"><select name="status" defaultValue={String(item.status ?? 'da iniziare')} className="input">{['da iniziare','in corso','raggiunto','consolidato'].map((v) => option(v))}</select></Field>{input('coach_note','Nota tecnica','text',false)}</>
   return null
 }
