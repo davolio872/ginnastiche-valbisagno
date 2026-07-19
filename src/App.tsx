@@ -147,10 +147,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-skyglass text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 bg-brand-900 px-5 py-6 text-white shadow-soft lg:block">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 flex-col bg-brand-900 px-5 py-6 text-white shadow-soft lg:flex">
         <Brand />
-        <nav className="mt-8 space-y-2">{allowedNav.map((item) => <NavButton key={item.id} item={item} active={section === item.id} onClick={() => setSection(item.id)} />)}</nav>
-        <div className="absolute bottom-6 left-5 right-5 rounded-lg border border-white/15 bg-white/10 p-4">
+        <nav className="mt-6 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">{allowedNav.map((item) => <NavButton key={item.id} item={item} active={section === item.id} onClick={() => setSection(item.id)} />)}</nav>
+        <div className="mt-4 rounded-lg border border-white/15 bg-white/10 p-4">
           <p className="font-bold">{profile.full_name}</p><p className="truncate text-sm text-brand-100">{profile.email}</p>
           <button onClick={() => { if (demoMode) { setProfile(null); setDemoMode(false) } else void supabase?.auth.signOut() }} className="mt-4 flex items-center gap-2 text-sm font-bold"><LogOut size={16} />Esci</button>
         </div>
@@ -200,7 +200,7 @@ export default function App() {
 function LoadingScreen() { return <div className="grid min-h-screen place-items-center bg-skyglass"><LoaderCircle className="animate-spin text-brand-700" size={36} /></div> }
 function Brand() { return <div className="flex items-center gap-3"><img src="/logo-valbisagno.jpg" alt="" className="h-14 w-14 rounded-full object-cover ring-4 ring-white/15" /><div className="text-lg font-black leading-tight"><p>Ginnastiche</p><p className="text-brand-100">Valbisagno</p></div></div> }
 function NavButton({ item, active, onClick, mobile = false }: { item: typeof navItems[number]; active: boolean; onClick: () => void; mobile?: boolean }) {
-  return <button onClick={onClick} className={mobile ? `flex min-w-[76px] flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold ${active ? 'bg-brand-900 text-white' : 'text-slate-500'}` : `flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold ${active ? 'bg-white text-brand-900' : 'text-brand-50 hover:bg-white/10'}`}><item.icon size={mobile ? 19 : 20} />{item.label}</button>
+  return <button onClick={onClick} className={mobile ? `flex min-w-[76px] flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold ${active ? 'bg-brand-900 text-white' : 'text-slate-500'}` : `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold ${active ? 'bg-white text-brand-900' : 'text-brand-50 hover:bg-white/10'}`}><item.icon size={mobile ? 19 : 19} /><span className="truncate">{item.label}</span></button>
 }
 function Badge({ children, className = '' }: { children: ReactNode; className?: string }) { return <span className={`inline-flex rounded-md bg-brand-100 px-2 py-1 text-xs font-black uppercase text-brand-700 ${className}`}>{children}</span> }
 function Empty({ text }: { text: string }) { return <div className="rounded-lg border border-dashed border-brand-200 bg-white p-10 text-center text-slate-500">{text}</div> }
@@ -299,10 +299,11 @@ function InfoBlock({ title, text }: { title: string; text?: string | null }) {
 }
 
 function Payments({ data, editable, edit, remove }: { data: DataState; editable: boolean; edit: (i: PaymentRow) => void; remove: (id: string) => void }) {
-  const due = data.payments.filter((row) => !['pagato', 'esonerato'].includes(row.status))
+  const payments = data.payments ?? []
+  const due = payments.filter((row) => !['pagato', 'esonerato'].includes(row.status))
   return <div className="space-y-5">
-    <div className="grid gap-3 sm:grid-cols-3"><Metric icon={WalletCards} label="Da incassare" value={`€ ${due.reduce((sum, row) => sum + Number(row.amount), 0).toFixed(2)}`} /><Metric icon={CheckCircle2} label="Pagati" value={String(data.payments.filter((row) => row.status === 'pagato').length)} /><Metric icon={FileSpreadsheet} label="Voci" value={String(data.payments.length)} /></div>
-    {!data.payments.length ? <Empty text="Nessun pagamento registrato." /> : <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Atleta</th><th className="p-4">Descrizione</th><th className="p-4">Importo</th><th className="p-4">Scadenza</th><th className="p-4">Stato</th><th /></tr></thead><tbody>{data.payments.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.athletes?.first_name} {row.athletes?.last_name}</td><td className="p-4">{row.description}</td><td className="p-4">€ {Number(row.amount).toFixed(2)}</td><td className="p-4">{dateLabel(row.due_date)}</td><td className="p-4"><Badge>{row.status}</Badge></td><td className="p-2">{editable && <Actions edit={() => edit(row)} remove={() => remove(row.id)} />}</td></tr>)}</tbody></table></div>}
+    <div className="grid gap-3 sm:grid-cols-3"><Metric icon={WalletCards} label="Da incassare" value={`EUR ${due.reduce((sum, row) => sum + Number(row.amount), 0).toFixed(2)}`} /><Metric icon={CheckCircle2} label="Pagati" value={String(payments.filter((row) => row.status === 'pagato').length)} /><Metric icon={FileSpreadsheet} label="Voci" value={String(payments.length)} /></div>
+    {!payments.length ? <Empty text="Nessun pagamento registrato. Usa Aggiungi per inserire quota associativa, mensilita, gare, saggi o abbigliamento." /> : <div className="overflow-x-auto rounded-lg bg-white shadow-soft"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-brand-50"><tr><th className="p-4">Atleta</th><th className="p-4">Descrizione</th><th className="p-4">Importo</th><th className="p-4">Scadenza</th><th className="p-4">Stato</th><th /></tr></thead><tbody>{payments.map((row) => <tr key={row.id} className="border-t border-brand-50"><td className="p-4 font-bold">{row.athletes?.first_name} {row.athletes?.last_name}</td><td className="p-4">{row.description}</td><td className="p-4">EUR {Number(row.amount).toFixed(2)}</td><td className="p-4">{dateLabel(row.due_date)}</td><td className="p-4"><Badge>{row.status}</Badge></td><td className="p-2">{editable && <Actions edit={() => edit(row)} remove={() => remove(row.id)} />}</td></tr>)}</tbody></table></div>}
   </div>
 }
 
