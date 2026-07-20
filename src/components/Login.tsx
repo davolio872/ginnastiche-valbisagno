@@ -26,6 +26,25 @@ export function Login({ onBackHome, onDemoLogin }: { onBackHome: () => void; onD
     if (error) setMessage('Email o password non corrette.')
   }
 
+  async function handlePasswordReset() {
+    setMessage('')
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setMessage('Inserisci prima la tua email reale.')
+      return
+    }
+    if (!isSupabaseConfigured || !supabase) {
+      setMessage('Supabase non è configurato.')
+      return
+    }
+    setLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: window.location.origin,
+    })
+    setLoading(false)
+    setMessage(error ? 'Invio recupero non riuscito.' : 'Email di recupero inviata. Controlla la posta.')
+  }
+
   return (
     <main className="grid min-h-screen bg-skyglass lg:grid-cols-[0.85fr_1.15fr]">
       <section className="sport-lines flex flex-col justify-between p-8 text-white lg:p-12">
@@ -56,6 +75,9 @@ export function Login({ onBackHome, onDemoLogin }: { onBackHome: () => void; onD
           {message && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{message}</p>}
           <button disabled={loading} className="mt-6 w-full rounded-lg bg-brand-900 px-5 py-4 font-black text-white shadow-soft disabled:opacity-60">
             {loading ? 'Accesso...' : 'Accedi'}
+          </button>
+          <button type="button" onClick={handlePasswordReset} disabled={loading} className="mt-3 w-full rounded-lg border border-brand-100 px-5 py-3 font-bold text-brand-900 disabled:opacity-60">
+            Recupera password admin reale
           </button>
           <div className="mt-4 rounded-lg bg-brand-50 p-3 text-sm text-brand-900">
             <strong>Versione demo:</strong> utente <strong>admin</strong>, password <strong>1234</strong>.

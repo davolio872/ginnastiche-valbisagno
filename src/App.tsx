@@ -1,6 +1,6 @@
 import {
   BarChart3, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileHeart, FileSpreadsheet,
-  Home, Import, Layers3, LoaderCircle, LogOut, Medal, MessageSquare, Pencil, Plus,
+  Home, Import, KeyRound, Layers3, LoaderCircle, LogOut, Medal, MessageSquare, Pencil, Plus,
   Repeat2, ShieldCheck, Sparkles, Trash2, Users, WalletCards, X,
 } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
@@ -109,6 +109,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [editor, setEditor] = useState<Editor>(null)
+  const [recoveringPassword, setRecoveringPassword] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true); setError('')
@@ -126,7 +127,10 @@ export default function App() {
       finally { setAuthLoading(false) }
     }
     db.auth.getSession().then(({ data: { session } }) => applySession(session?.user.id))
-    const { data: listener } = db.auth.onAuthStateChange((_event, session) => { void applySession(session?.user.id) })
+    const { data: listener } = db.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setRecoveringPassword(true)
+      void applySession(session?.user.id)
+    })
     return () => listener.subscription.unsubscribe()
   }, [])
 
@@ -168,6 +172,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
           {demoMode && <div className="mb-5 rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-900">Modalità demo: tutte le funzioni sono attive, i dati restano soltanto in questo browser.</div>}
           {error && <div className="mb-5 flex justify-between rounded-lg bg-red-50 p-4 font-semibold text-red-700">{error}<button onClick={() => setError('')}><X size={18} /></button></div>}
+          {recoveringPassword && <PasswordRecovery onDone={() => setRecoveringPassword(false)} />}
           {loading ? <div className="grid min-h-64 place-items-center"><LoaderCircle className="animate-spin text-brand-700" size={32} /></div> : (
             <>
               {section === 'dashboard' && <Dashboard profile={profile} data={data} setSection={setSection} />}
@@ -205,6 +210,43 @@ function NavButton({ item, active, onClick, mobile = false }: { item: typeof nav
 function Badge({ children, className = '' }: { children: ReactNode; className?: string }) { return <span className={`inline-flex rounded-md bg-brand-100 px-2 py-1 text-xs font-black uppercase text-brand-700 ${className}`}>{children}</span> }
 function Empty({ text }: { text: string }) { return <div className="rounded-lg border border-dashed border-brand-200 bg-white p-10 text-center text-slate-500">{text}</div> }
 function Actions({ edit, remove }: { edit: () => void; remove: () => void }) { return <div className="flex gap-1"><button title="Modifica" onClick={edit} className="rounded-md p-2 text-brand-700 hover:bg-brand-50"><Pencil size={17} /></button><button title="Elimina" onClick={remove} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 size={17} /></button></div> }
+
+function PasswordRecovery({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setMessage('')
+    if (password.length < 8) {
+      setMessage('Usa almeno 8 caratteri.')
+      return
+    }
+    setSaving(true)
+    const { error } = await supabase!.auth.updateUser({ password })
+    setSaving(false)
+    if (error) {
+      setMessage('Password non aggiornata. Riprova dal link ricevuto via email.')
+      return
+    }
+    setMessage('Password aggiornata.')
+    window.setTimeout(onDone, 900)
+  }
+
+  return <form onSubmit={submit} className="mb-5 rounded-lg border border-brand-200 bg-white p-4 shadow-soft">
+    <div className="flex items-start gap-3">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-800"><KeyRound size={20} /></div>
+      <div className="min-w-0 flex-1">
+        <h2 className="font-black text-brand-900">Imposta nuova password</h2>
+        <p className="mt-1 text-sm text-slate-600">Hai aperto il link di recupero Supabase. Salva qui la nuova password dell'account reale.</p>
+        <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={8} required className="input mt-3" placeholder="Nuova password" autoComplete="new-password" />
+        {message && <p className="mt-2 text-sm font-bold text-brand-800">{message}</p>}
+        <button disabled={saving} className="mt-3 rounded-lg bg-brand-900 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{saving ? 'Salvataggio...' : 'Salva nuova password'}</button>
+      </div>
+    </div>
+  </form>
+}
 
 function Dashboard({ profile, data, setSection }: { profile: UserProfile; data: DataState; setSection: (s: Section) => void }) {
   const next = data.events.find((event) => new Date(`${event.event_date}T23:59:59`) >= new Date())
