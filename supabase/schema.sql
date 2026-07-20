@@ -47,9 +47,12 @@ create table public.athletes (
   user_id uuid references public.users_profiles(id) on delete set null,
   first_name text not null,
   last_name text not null,
+  gender text,
+  tax_code text,
   birth_date date not null,
   guardian_id uuid references public.guardians(id) on delete set null,
   medical_certificate_expires_at date,
+  medical_certificate_type text,
   medical_notes text,
   profile_photo_url text,
   created_at timestamptz not null default now()
@@ -223,6 +226,7 @@ create table public.athlete_memberships (
   season text not null,
   federation text,
   card_number text,
+  issued_at date,
   status text not null default 'attiva',
   source text,
   imported_at timestamptz not null default now(),
@@ -508,14 +512,14 @@ with check (privacy_consent = true);
 create policy "trial requests admin select manage" on public.trial_requests for all to authenticated
 using (gv_private.is_admin()) with check (gv_private.is_admin());
 
-insert into public.teams (name, description, color) values
-  ('Baby', 'Primi passi motori e gioco ginnico.', '#38bdf8'),
-  ('Base', 'Tecnica di base e coordinazione.', '#0ea5e9'),
-  ('Avanzato', 'Elementi evoluti e preparazione gare.', '#2563eb'),
-  ('Agonistica', 'Programma competitivo federale.', '#1d4ed8'),
-  ('TeamGym', 'Lavoro di squadra, tumbling e mini trampolino.', '#0891b2'),
-  ('Acrobatica', 'Acrobatica a coppie e collettiva.', '#0f766e'),
-  ('Fitness', 'Condizionamento e benessere.', '#0284c7')
+insert into public.teams (name, description, color, season) values
+  ('Pulcini', 'Gruppo Pulcini. Insegnanti: Toscano Deborah, Spatari Arianna.', '#18aaa5', '2025/2026'),
+  ('Pre-Agonistica/Mignon', 'Gruppo Pre-Agonistica/Mignon. Insegnanti: Ventroni Matilda, Strazzera Melissa.', '#0a6d78', '2025/2026'),
+  ('Rassegna', 'Gruppo Rassegna. Insegnanti: Viale Denise, Esposito Alessia, Spatari Arianna.', '#38bdf8', '2025/2026'),
+  ('Silver', 'Gruppo Silver. Insegnanti: Arthemalle Silvia, Toscano Deborah, Cavestro Amanda.', '#0ea5e9', '2025/2026'),
+  ('Agonistica', 'Gruppo Agonistica. Direttore tecnico: Mariotto Serena. Insegnanti: Matera Giorgia, Caiti Aurora, Ravaschio Chiara.', '#063f4d', '2025/2026'),
+  ('Acrobatica', 'Gruppo Acrobatica.', '#0891b2', '2025/2026'),
+  ('Corso Adulti', 'Corso Adulti.', '#0284c7', '2025/2026')
 on conflict (name) do nothing;
 
 insert into public.goals (title, apparatus) values
@@ -542,6 +546,8 @@ create index if not exists idx_athlete_goals_athlete_id on public.athlete_goals(
 create index if not exists idx_athlete_goals_goal_id on public.athlete_goals(goal_id);
 create index if not exists idx_athletes_guardian_id on public.athletes(guardian_id);
 create index if not exists idx_athletes_user_id on public.athletes(user_id);
+create unique index if not exists athletes_tax_code_unique on public.athletes (tax_code) where tax_code is not null and tax_code <> '';
+create index if not exists idx_athletes_last_first_birth on public.athletes(last_name, first_name, birth_date);
 create index if not exists idx_attendance_athlete_id on public.attendance(athlete_id);
 create index if not exists idx_attendance_reported_by on public.attendance(reported_by);
 create index if not exists idx_communication_reads_user_id on public.communication_reads(user_id);

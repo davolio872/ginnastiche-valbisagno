@@ -44,10 +44,13 @@ function seed(): DemoData {
     id: athlete.id,
     first_name: athlete.first_name,
     last_name: athlete.last_name,
+    gender: null,
+    tax_code: null,
     birth_date: athlete.birth_date,
     guardian_id: `guardian-${athlete.id}`,
     user_id: athlete.id === 'athlete-1' ? demoProfiles.atleta.id : null,
     medical_certificate_expires_at: athlete.medical_certificate_expires_at,
+    medical_certificate_type: null,
     medical_notes: athlete.medical_notes ?? null,
     profile_photo_url: athlete.profile_photo_url ?? null,
     guardians: {
@@ -238,9 +241,12 @@ export async function saveDemoAthlete(values: Record<string, unknown>, teamIds: 
   const data = read()
   const row: AthleteRow = {
     id: athleteId ?? id(), first_name: String(values.first_name), last_name: String(values.last_name),
+    gender: String(values.gender || '') || null,
+    tax_code: String(values.tax_code || '') || null,
     birth_date: String(values.birth_date), guardian_id: String(values.guardian_id || id()),
     user_id: String(values.athlete_user_id || '') || null,
     medical_certificate_expires_at: String(values.medical_certificate_expires_at || '') || null,
+    medical_certificate_type: String(values.medical_certificate_type || '') || null,
     medical_notes: String(values.medical_notes || '') || null,
     profile_photo_url: String(values.profile_photo_url || '') || null,
     guardians: {

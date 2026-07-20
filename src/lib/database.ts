@@ -18,9 +18,12 @@ export type AthleteRow = {
   id: string
   first_name: string
   last_name: string
+  gender: string | null
+  tax_code: string | null
   birth_date: string
   guardian_id: string | null
   medical_certificate_expires_at: string | null
+  medical_certificate_type: string | null
   medical_notes: string | null
   profile_photo_url: string | null
   user_id: string | null
